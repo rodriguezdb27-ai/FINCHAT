@@ -1,0 +1,1958 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>FinChat — Asistente de finanzas personales</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.4/chart.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&display=swap');
+
+:root {
+  --paper: #eaf2fb;
+  --paper-2: #dce9f7;
+  --surface: #ffffff;
+  --ink: #12243d;
+  --ink-soft: #5b7290;
+  --line: #cfdff0;
+  --green: #15803d;
+  --green-soft: #dcf2e4;
+  --red: #b91c1c;
+  --red-soft: #fbe3e1;
+  --blue: #2a4d8f;
+  --blue-soft: #dbe8fa;
+  --amber: #b45309;
+  --amber-soft: #fbeedb;
+  --gold: #c9a227;
+  --gold-soft: #f7ecc9;
+  --gold-line: rgba(201,162,39,.45);
+  --text: var(--ink);
+  --shadow: 0 2px 10px rgba(18,36,61,.07);
+  --radius: 14px;
+  color-scheme: light;
+}
+:root[data-theme="dark"] {
+  --paper: #0d1a2b;
+  --paper-2: #122236;
+  --surface: #17283d;
+  --ink: #e7effa;
+  --ink-soft: #9db6d4;
+  --line: #27405c;
+  --green: #4ade80;
+  --green-soft: #12301f;
+  --red: #f87171;
+  --red-soft: #351a1a;
+  --blue: #8fb0ec;
+  --blue-soft: #1a2c47;
+  --amber: #fbbf24;
+  --amber-soft: #38290f;
+  --gold: #e3c46e;
+  --gold-soft: #33290f;
+  --gold-line: rgba(227,196,110,.4);
+  --text: var(--ink);
+  --shadow: 0 2px 10px rgba(0,0,0,.4);
+  color-scheme: dark;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --paper: #0d1a2b;
+    --paper-2: #122236;
+    --surface: #17283d;
+    --ink: #e7effa;
+    --ink-soft: #9db6d4;
+    --line: #27405c;
+    --green: #4ade80;
+    --green-soft: #12301f;
+    --red: #f87171;
+    --red-soft: #351a1a;
+    --blue: #8fb0ec;
+    --blue-soft: #1a2c47;
+    --amber: #fbbf24;
+    --amber-soft: #38290f;
+    --gold: #e3c46e;
+    --gold-soft: #33290f;
+    --gold-line: rgba(227,196,110,.4);
+    --text: var(--ink);
+    --shadow: 0 2px 10px rgba(0,0,0,.4);
+    color-scheme: dark;
+  }
+}
+
+* { box-sizing: border-box; }
+html, body { margin: 0; padding: 0; }
+body {
+  background-color: var(--paper);
+  background-image:
+    radial-gradient(circle at 12% 8%, var(--gold-soft) 0, transparent 22%),
+    radial-gradient(circle at 88% 4%, var(--gold-soft) 0, transparent 20%),
+    radial-gradient(circle at 78% 92%, var(--gold-soft) 0, transparent 24%),
+    repeating-linear-gradient(45deg, var(--gold-line) 0 1px, transparent 1px 34px),
+    repeating-linear-gradient(-45deg, var(--gold-line) 0 1px, transparent 1px 34px),
+    linear-gradient(170deg, var(--paper) 0%, var(--paper-2) 100%);
+  background-attachment: fixed;
+  color: var(--text);
+  font-family: 'Manrope', system-ui, sans-serif;
+  font-size: 15px;
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+  padding-bottom: 78px;
+}
+button, input, select, textarea { font-family: inherit; font-size: inherit; color: inherit; }
+::selection { background: var(--green-soft); }
+
+.topbar {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 16px 18px; border-bottom: 1px solid var(--line);
+  background: var(--surface);
+}
+.brand { font-family: 'Fraunces', serif; font-weight: 600; font-size: 20px; display: flex; align-items: center; gap: 8px; }
+.brand-sub { font-size: 13px; color: var(--ink-soft); }
+
+.layout { display: flex; max-width: 1100px; margin: 0 auto; }
+.main { flex: 1; min-width: 0; padding: 16px; max-width: 720px; margin: 0 auto; width: 100%; }
+
+.sidebar { display: none; }
+.bottomnav {
+  position: fixed; bottom: 0; left: 0; right: 0; display: flex;
+  background: var(--surface); border-top: 1px solid var(--line);
+  padding: 6px 4px calc(6px + env(safe-area-inset-bottom));
+  z-index: 20;
+}
+.bn-item, .side-item {
+  flex: 1; display: flex; flex-direction: column; align-items: center; gap: 2px;
+  background: none; border: none; padding: 6px 2px; border-radius: 10px; cursor: pointer;
+  color: var(--ink-soft); font-size: 11px; font-weight: 600;
+}
+.bn-item.active, .side-item.active { color: var(--green); background: var(--green-soft); }
+.nav-icon { font-size: 19px; line-height: 1; }
+
+@media (min-width: 900px) {
+  body { padding-bottom: 0; }
+  .bottomnav { display: none; }
+  .sidebar {
+    display: flex; flex-direction: column; gap: 4px; width: 200px; padding: 18px 10px;
+    border-right: 1px solid var(--line); min-height: calc(100vh - 61px);
+  }
+  .side-item { flex-direction: row; justify-content: flex-start; gap: 10px; padding: 10px 12px; font-size: 14px; }
+  .main { max-width: 860px; padding: 22px 28px; }
+}
+
+.card {
+  background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius);
+  padding: 16px; margin-bottom: 14px; box-shadow: var(--shadow);
+}
+.card-title { font-weight: 700; margin-bottom: 10px; font-size: 15px; }
+.muted { color: var(--ink-soft); font-size: 13px; }
+.empty { color: var(--ink-soft); font-size: 13px; padding: 10px 0; }
+
+.cards-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; margin-bottom: 14px; }
+@media (min-width: 560px) { .cards-grid { grid-template-columns: repeat(3, 1fr); } }
+.kpi { margin: 0; padding: 14px; }
+.kpi-label { font-size: 12px; color: var(--ink-soft); margin-bottom: 4px; }
+.kpi-value { font-family: 'Fraunces', serif; font-size: 24px; font-weight: 600; }
+.kpi-green { background: var(--green-soft); border-color: transparent; }
+.kpi-green .kpi-value { color: var(--green); }
+.kpi-red { background: var(--red-soft); border-color: transparent; }
+.kpi-red .kpi-value { color: var(--red); }
+.kpi-blue { background: var(--blue-soft); border-color: transparent; }
+.kpi-blue .kpi-value { color: var(--blue); }
+
+.two-col { display: grid; grid-template-columns: 1fr; gap: 14px; }
+@media (min-width: 700px) { .two-col { grid-template-columns: 1fr 1fr; } }
+
+.chart-wrap { position: relative; height: 240px; margin-bottom: 10px; }
+
+.table { width: 100%; border-collapse: collapse; font-size: 13px; }
+.table th { text-align: left; padding: 8px 6px; border-bottom: 2px solid var(--line); color: var(--ink-soft); font-weight: 600; }
+.table td { padding: 8px 6px; border-bottom: 1px solid var(--line); }
+.table-scroll { overflow-x: auto; }
+
+.alert-card { border-color: var(--amber); background: var(--amber-soft); }
+.alert-line { font-size: 13px; padding: 6px 0; border-bottom: 1px dashed var(--line); }
+.alert-line:last-child { border-bottom: none; }
+.rec-line { font-size: 13px; padding: 7px 0; border-bottom: 1px dashed var(--line); }
+.rec-line:last-child { border-bottom: none; }
+
+.btn {
+  border: none; border-radius: 10px; padding: 12px 16px; font-weight: 700; cursor: pointer;
+  transition: transform .05s ease;
+}
+.btn:active { transform: scale(.98); }
+.btn-block { width: 100%; display: block; margin-top: 8px; }
+.btn-lg { font-size: 16px; padding: 16px; }
+.btn-sm { padding: 6px 10px; font-size: 12px; }
+.btn-primary { background: var(--green); color: #fff; }
+.btn-secondary { background: var(--blue-soft); color: var(--blue); }
+.btn-danger { background: var(--red); color: #fff; }
+.btn-success { background: var(--green); color: #fff; }
+.btn-danger-outline { background: transparent; border: 1px solid var(--red); color: var(--red); }
+
+.select, .input, .textarea {
+  border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px;
+  background: var(--surface); color: var(--text); width: 100%;
+}
+.input-sm { padding: 6px 8px; width: 110px; }
+.input-lg { font-size: 22px; font-family: 'Fraunces', serif; padding: 14px; text-align: center; }
+.textarea { min-height: 64px; resize: vertical; margin-bottom: 8px; }
+
+.period-bar { display: flex; gap: 8px; margin-bottom: 14px; flex-wrap: wrap; }
+.period-bar .select { width: auto; min-width: 150px; }
+
+.chat-card { min-height: 260px; }
+.bubble {
+  background: var(--paper); border: 1px solid var(--line); border-radius: 14px 14px 14px 4px;
+  padding: 12px 14px; margin-bottom: 12px; max-width: 90%; font-size: 14px;
+}
+.bubble-success { background: var(--green-soft); border-color: transparent; color: var(--green); font-weight: 600; }
+.bubble-user { background: var(--blue-soft); border-color: transparent; margin-left: auto; border-radius: 14px 14px 4px 14px; color: var(--blue); }
+.chat-buttons { display: flex; gap: 10px; }
+.chat-buttons .btn { flex: 1; }
+
+.cat-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+.cat-btn {
+  display: flex; flex-direction: column; align-items: center; gap: 4px;
+  border: 1px solid var(--line); background: var(--surface); border-radius: 12px;
+  padding: 12px 4px; font-size: 20px; cursor: pointer;
+}
+.cat-btn span { font-size: 11px; font-weight: 600; color: var(--ink-soft); }
+.cat-btn:hover { border-color: var(--green); }
+
+.preview-box { margin-top: 12px; border-top: 1px dashed var(--line); padding-top: 12px; }
+.preview-item { border: 1px solid var(--line); border-radius: 10px; padding: 10px; margin-bottom: 10px; }
+.preview-warn { border-color: var(--amber); background: var(--amber-soft); }
+.preview-row { display: flex; gap: 8px; margin-bottom: 8px; flex-wrap: wrap; }
+.preview-row > * { flex: 1; min-width: 120px; }
+.warn-text { font-size: 12px; color: var(--amber); margin-bottom: 6px; }
+
+.assistant-card { display: flex; flex-direction: column; }
+.assistant-log { max-height: 360px; overflow-y: auto; margin-bottom: 10px; }
+.chip-row { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 10px; }
+.chip {
+  border: 1px solid var(--line); background: var(--paper); border-radius: 999px;
+  padding: 6px 12px; font-size: 12px; cursor: pointer; color: var(--ink-soft);
+}
+.chip:hover { border-color: var(--green); color: var(--green); }
+
+.budget-row { padding: 10px 0; border-bottom: 1px solid var(--line); }
+.budget-row:last-child { border-bottom: none; }
+.budget-head { display: flex; justify-content: space-between; align-items: center; gap: 10px; margin-bottom: 6px; font-weight: 600; }
+.budget-sub { font-size: 12px; color: var(--ink-soft); margin-top: 4px; }
+.progress { height: 8px; background: var(--paper); border-radius: 999px; overflow: hidden; }
+.progress-fill { height: 100%; background: var(--green); border-radius: 999px; }
+.progress-fill.warn { background: var(--amber); }
+.progress-fill.over { background: var(--red); }
+
+.stats-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+@media (min-width: 600px) { .stats-grid { grid-template-columns: repeat(3, 1fr); } }
+.stat-label { font-size: 11px; color: var(--ink-soft); margin-bottom: 2px; }
+.stat-value { font-weight: 700; font-size: 14px; }
+
+.cat-manage-group { margin-bottom: 10px; }
+.cat-manage-row { display: flex; justify-content: space-between; align-items: center; padding: 6px 0; border-bottom: 1px solid var(--line); font-size: 13px; }
+
+.toast {
+  position: fixed; bottom: 90px; left: 50%; transform: translateX(-50%);
+  background: var(--ink); color: var(--paper); padding: 12px 18px; border-radius: 10px;
+  font-size: 13px; max-width: 90%; z-index: 50; box-shadow: 0 4px 14px rgba(0,0,0,.25);
+}
+.toast-success { background: var(--green); color: #fff; }
+.toast-error { background: var(--red); color: #fff; }
+.toast-warn { background: var(--amber); color: #1a1400; }
+
+@media (min-width: 900px) {
+  .toast { bottom: 24px; }
+}
+
+
+
+/* ===== Detalles dorados ===== */
+.topbar {
+  border-bottom: 1px solid var(--gold-line);
+  box-shadow: 0 1px 0 rgba(201,162,39,.18);
+}
+.brand { color: var(--blue); }
+.brand span { background: linear-gradient(90deg, var(--blue), var(--gold)); -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent; }
+.card { border-color: var(--line); position: relative; }
+.card::before {
+  content: ''; position: absolute; inset: 0 0 auto 0; height: 2px;
+  background: linear-gradient(90deg, transparent, var(--gold), transparent);
+  border-radius: var(--radius) var(--radius) 0 0; opacity: .5;
+}
+.card-title { color: var(--blue); letter-spacing: .01em; }
+.gold-text { color: var(--gold); }
+.dot-gold { background: var(--gold); }
+.dot-blue { background: var(--blue); }
+.dot-neutral { background: var(--line); }
+.progress-fill.gold { background: linear-gradient(90deg, var(--gold), #e0c264); }
+.pos { color: var(--green); }
+.neg { color: var(--red); }
+
+/* ===== Pastel formal ===== */
+.chart-pie { height: 260px; }
+.pie-legend { display: flex; justify-content: center; gap: 20px; flex-wrap: wrap; font-size: 13px; margin-top: 4px; }
+.pie-legend-item { display: flex; align-items: center; gap: 6px; }
+.dot { width: 10px; height: 10px; border-radius: 50%; display: inline-block; flex: none; }
+.dot-green { background: var(--green); }
+.dot-red { background: var(--red); }
+
+/* ===== Cuadro de disponibilidad ===== */
+.avail-card { border: 1px solid var(--gold-line); background: linear-gradient(160deg, var(--surface), var(--blue-soft)); }
+.avail-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.avail-box { border-radius: 12px; padding: 12px; border: 1px solid var(--gold-line); background: var(--surface); }
+.avail-box-save { border-left: 4px solid var(--gold); }
+.avail-box-free { border-left: 4px solid var(--blue); }
+.avail-label { font-size: 11px; color: var(--ink-soft); text-transform: uppercase; letter-spacing: .04em; }
+.avail-value { font-family: 'Fraunces', serif; font-size: 22px; font-weight: 600; margin: 2px 0; }
+.avail-box-save .avail-value { color: var(--gold); }
+.avail-box-free .avail-value { color: var(--blue); }
+.avail-note { font-size: 11px; color: var(--ink-soft); }
+.avail-msg { margin-top: 12px; padding: 10px 12px; border-radius: 10px; font-size: 13px; font-weight: 600; }
+.avail-ok .avail-msg { background: var(--green-soft); color: var(--green); }
+.avail-warn .avail-msg { background: var(--amber-soft); color: var(--amber); }
+.avail-danger .avail-msg { background: var(--red-soft); color: var(--red); }
+.avail-details { margin-top: 10px; font-size: 13px; }
+.avail-details summary { cursor: pointer; color: var(--blue); font-weight: 600; }
+.avail-calc { margin-top: 8px; }
+.avail-calc > div { display: flex; justify-content: space-between; padding: 5px 0; border-bottom: 1px dashed var(--line); }
+.avail-calc-total { border-bottom: 2px solid var(--gold-line) !important; font-weight: 700; }
+
+/* ===== Tendencia y evitar ===== */
+.trend-badge { display: inline-block; padding: 8px 14px; border-radius: 999px; font-size: 13px; font-weight: 600; margin-bottom: 12px; }
+.trend-up { background: var(--green-soft); color: var(--green); }
+.trend-down { background: var(--red-soft); color: var(--red); }
+.trend-flat { background: var(--blue-soft); color: var(--blue); }
+.avoid-card { border-color: var(--gold-line); }
+.avoid-row { padding: 10px 0; border-bottom: 1px dashed var(--line); }
+.avoid-row:last-of-type { border-bottom: none; }
+.avoid-head { display: flex; justify-content: space-between; align-items: center; font-weight: 600; margin-bottom: 6px; font-size: 14px; }
+.avoid-total { margin-top: 12px; padding: 12px; border-radius: 10px; background: var(--gold-soft); color: var(--ink); font-size: 14px; border: 1px solid var(--gold-line); }
+
+/* ===== Presupuesto con gráfica ===== */
+.budget-chart-row { display: flex; gap: 14px; align-items: center; margin-top: 8px; }
+.budget-chart { width: 110px; height: 110px; flex: none; position: relative; }
+.budget-chart-info { flex: 1; min-width: 0; font-size: 13px; }
+.bl-item { display: flex; align-items: center; gap: 7px; padding: 3px 0; }
+.bl-item strong { margin-left: auto; }
+@media (max-width: 420px) {
+  .budget-chart { width: 92px; height: 92px; }
+  .avail-grid { grid-template-columns: 1fr; }
+}
+</style>
+</head>
+<body>
+<div id="root"></div>
+<script>
+/* ===================== ESTADO Y PERSISTENCIA ===================== */
+const STORAGE_KEY = 'pf_data_v1';
+const CURRENCIES = {
+  MXN: { symbol: '$', locale: 'es-MX' },
+  USD: { symbol: '$', locale: 'en-US' },
+  EUR: { symbol: '€', locale: 'de-DE' },
+  GBP: { symbol: '£', locale: 'en-GB' },
+  CAD: { symbol: 'CA$', locale: 'en-CA' },
+};
+
+const DEFAULT_EXPENSE_CATEGORIES = [
+  { id: 'comida', name: 'Comida', icon: '🍔', keywords: ['comida','comer','food','restaurante','super','supermercado','antojo'] },
+  { id: 'recibos', name: 'Recibos', icon: '🏠', keywords: ['recibo','recibos','renta','luz','agua','internet','telefono'] },
+  { id: 'escuela', name: 'Escuela', icon: '🎓', keywords: ['escuela','colegiatura','universidad','curso','libros'] },
+  { id: 'transporte', name: 'Transporte', icon: '🚗', keywords: ['transporte','gasolina','uber','camion','taxi','metro','estacionamiento'] },
+  { id: 'compras', name: 'Compras', icon: '🛒', keywords: ['compras','ropa','tienda','amazon'] },
+  { id: 'salud', name: 'Salud', icon: '💊', keywords: ['salud','doctor','medico','medicina','farmacia','dentista'] },
+  { id: 'entretenimiento', name: 'Entretenimiento', icon: '🎬', keywords: ['entretenimiento','cine','netflix','streaming','salida','fiesta'] },
+  { id: 'ahorro', name: 'Ahorro', icon: '💰', keywords: ['ahorro','ahorré','aparté'] },
+  { id: 'otros', name: 'Otros', icon: '📦', keywords: ['otros','otro'] },
+];
+const DEFAULT_INCOME_CATEGORIES = [
+  { id: 'sueldo', name: 'Sueldo', icon: '💼', keywords: ['sueldo','nomina','salario','quincena'] },
+  { id: 'negocio', name: 'Negocio', icon: '🏢', keywords: ['negocio','ventas'] },
+  { id: 'inversiones', name: 'Inversiones', icon: '📈', keywords: ['inversion','inversiones','dividendo'] },
+  { id: 'freelance', name: 'Freelance', icon: '💻', keywords: ['freelance','proyecto','chamba'] },
+  { id: 'regalo', name: 'Regalo', icon: '🎁', keywords: ['regalo','regalaron'] },
+  { id: 'otros_ing', name: 'Otros', icon: '📦', keywords: ['otros','otro'] },
+];
+
+function defaultState() {
+  return {
+    settings: { currency: 'MXN', savingsGoal: { amount: 0, date: '' } },
+    categories: { gasto: DEFAULT_EXPENSE_CATEGORIES, ingreso: DEFAULT_INCOME_CATEGORIES },
+    budgets: {}, // { categoryId: monthlyLimit }
+    debts: [], // { id, name, amount } deudas / pagos pendientes del mes
+    transactions: [], // {id,type,amount,categoryId,description,notes,date(ISO),isDemo}
+  };
+}
+
+let state = loadState();
+
+function loadState() {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if (!raw) return seedDemoData(defaultState());
+    const parsed = JSON.parse(raw);
+    return parsed;
+  } catch (e) {
+    console.error('Error cargando datos', e);
+    return seedDemoData(defaultState());
+  }
+}
+
+function saveState() {
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+  } catch (e) {
+    console.error('Error guardando datos', e);
+    toast('No se pudo guardar. Espacio de almacenamiento lleno o no disponible.', 'error');
+  }
+}
+
+function uid() {
+  return 'x' + Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
+}
+
+/* ===================== DATOS DE PRUEBA ===================== */
+function seedDemoData(s) {
+  const now = new Date();
+  const txs = [];
+  const expCatIds = DEFAULT_EXPENSE_CATEGORIES.map(c => c.id);
+  function addTx(type, amount, categoryId, description, daysAgo) {
+    const d = new Date(now);
+    d.setDate(d.getDate() - daysAgo);
+    d.setHours(8 + Math.floor(Math.random() * 12), Math.floor(Math.random() * 60));
+    txs.push({ id: uid(), type, amount, categoryId, description, notes: '', date: d.toISOString(), isDemo: true });
+  }
+  // 3 meses de sueldo
+  for (let m = 0; m < 3; m++) {
+    addTx('ingreso', 15000, 'sueldo', 'Quincena', m * 30 + 2);
+    addTx('ingreso', 15000, 'sueldo', 'Quincena', m * 30 + 16);
+  }
+  addTx('ingreso', 2500, 'freelance', 'Proyecto diseño', 10);
+  addTx('ingreso', 800, 'regalo', 'Regalo cumpleaños', 40);
+
+  const foodDescs = ['Supermercado', 'Comida rápida', 'Restaurante', 'Antojo'];
+  for (let m = 0; m < 3; m++) {
+    for (let i = 0; i < 8; i++) {
+      addTx('gasto', 120 + Math.round(Math.random() * 250), 'comida', foodDescs[i % 4], m * 30 + i * 3 + 1);
+    }
+  }
+  // gasto inusual en comida el mes actual
+  addTx('gasto', 1200, 'comida', 'Cena especial', 3);
+
+  for (let m = 0; m < 3; m++) {
+    addTx('gasto', 1500, 'recibos', 'Renta / luz / agua', m * 30 + 5);
+    addTx('gasto', 600, 'recibos', 'Internet', m * 30 + 6);
+  }
+  for (let m = 0; m < 3; m++) {
+    addTx('gasto', 300 + Math.round(Math.random() * 200), 'transporte', 'Gasolina', m * 30 + 8);
+    addTx('gasto', 150, 'transporte', 'Uber', m * 30 + 12);
+  }
+  addTx('gasto', 2000, 'escuela', 'Colegiatura', 20);
+  addTx('gasto', 850, 'compras', 'Ropa', 7);
+  addTx('gasto', 1800, 'compras', 'Compras varias', 25);
+  addTx('gasto', 400, 'salud', 'Farmacia', 15);
+  addTx('gasto', 350, 'entretenimiento', 'Cine y streaming', 4);
+  addTx('gasto', 500, 'entretenimiento', 'Salida', 18);
+  addTx('gasto', 300, 'otros', 'Varios', 9);
+
+  s.transactions = txs;
+  s.budgets = { comida: 5000, transporte: 3000, entretenimiento: 1500, compras: 2500 };
+  s.debts = [
+    { id: uid(), name: 'Tarjeta de crédito', amount: 1200, isDemo: true },
+    { id: uid(), name: 'Préstamo escuela (mensualidad)', amount: 800, isDemo: true },
+  ];
+  s.settings.savingsGoal = { amount: 50000, date: addMonths(now, 8).toISOString().slice(0, 10) };
+  return s;
+}
+
+function addMonths(date, n) {
+  const d = new Date(date);
+  d.setMonth(d.getMonth() + n);
+  return d;
+}
+
+/* ===================== UTILIDADES DE FECHAS Y FORMATO ===================== */
+function fmtMoney(amount) {
+  const cur = CURRENCIES[state.settings.currency] || CURRENCIES.MXN;
+  try {
+    return new Intl.NumberFormat(cur.locale, { style: 'currency', currency: state.settings.currency, maximumFractionDigits: 0 }).format(amount);
+  } catch (e) {
+    return cur.symbol + Math.round(amount).toLocaleString();
+  }
+}
+function fmtPct(n) { return (isFinite(n) ? n : 0).toFixed(1) + '%'; }
+function fmtDate(iso) {
+  const d = new Date(iso);
+  return d.toLocaleDateString('es-MX', { day: '2-digit', month: 'short', year: 'numeric' });
+}
+function fmtTime(iso) {
+  const d = new Date(iso);
+  return d.toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' });
+}
+function monthKey(iso) { const d = new Date(iso); return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0'); }
+function isSameDay(a, b) { return a.toDateString() === b.toDateString(); }
+
+function getAllCategories() {
+  return [...state.categories.gasto, ...state.categories.ingreso];
+}
+function getCategory(id) {
+  return getAllCategories().find(c => c.id === id) || { id, name: 'Otros', icon: '📦' };
+}
+function getCategoriesByType(type) {
+  return state.categories[type] || [];
+}
+
+/* ===================== FILTRADO POR PERIODO ===================== */
+function periodRange(period, custom) {
+  const now = new Date();
+  let start, end;
+  if (period === 'month') {
+    start = new Date(now.getFullYear(), now.getMonth(), 1);
+    end = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59);
+  } else if (period === 'prevMonth') {
+    start = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+    end = new Date(now.getFullYear(), now.getMonth(), 0, 23, 59, 59);
+  } else if (period === 'last3') {
+    start = new Date(now.getFullYear(), now.getMonth() - 2, 1);
+    end = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59);
+  } else if (period === 'last6') {
+    start = new Date(now.getFullYear(), now.getMonth() - 5, 1);
+    end = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59);
+  } else if (period === 'year') {
+    start = new Date(now.getFullYear(), 0, 1);
+    end = new Date(now.getFullYear(), 11, 31, 23, 59, 59);
+  } else if (period === 'custom' && custom && custom.start && custom.end) {
+    start = new Date(custom.start);
+    end = new Date(custom.end + 'T23:59:59');
+  } else {
+    start = new Date(now.getFullYear(), now.getMonth(), 1);
+    end = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59);
+  }
+  return { start, end };
+}
+function filterByPeriod(txs, period, custom) {
+  const { start, end } = periodRange(period, custom);
+  return txs.filter(t => { const d = new Date(t.date); return d >= start && d <= end; });
+}
+
+/* ===================== CALCULOS FINANCIEROS ===================== */
+function computeTotals(txs) {
+  let ingresos = 0, gastos = 0;
+  txs.forEach(t => { if (t.type === 'ingreso') ingresos += t.amount; else gastos += t.amount; });
+  const balance = ingresos - gastos;
+  const pctGastado = ingresos > 0 ? (gastos / ingresos) * 100 : (gastos > 0 ? 100 : 0);
+  const pctAhorro = ingresos > 0 ? (balance / ingresos) * 100 : 0;
+  return { ingresos, gastos, balance, pctGastado, pctAhorro };
+}
+
+function computeCategoryBreakdown(txs, type) {
+  const map = {};
+  let total = 0;
+  txs.filter(t => t.type === type).forEach(t => {
+    map[t.categoryId] = (map[t.categoryId] || 0) + t.amount;
+    total += t.amount;
+  });
+  return Object.entries(map)
+    .map(([categoryId, amount]) => ({ categoryId, amount, pct: total > 0 ? (amount / total) * 100 : 0, cat: getCategory(categoryId) }))
+    .sort((a, b) => b.amount - a.amount);
+}
+
+function computeMonthlySeries(months = 6) {
+  const now = new Date();
+  const out = [];
+  for (let i = months - 1; i >= 0; i--) {
+    const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+    const key = d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0');
+    const label = d.toLocaleDateString('es-MX', { month: 'short', year: '2-digit' });
+    const txs = state.transactions.filter(t => monthKey(t.date) === key);
+    const totals = computeTotals(txs);
+    out.push({ key, label, ...totals });
+  }
+  return out;
+}
+
+function computeDailySeries(period, custom) {
+  const txs = filterByPeriod(state.transactions.filter(t => t.type === 'gasto'), period, custom);
+  const map = {};
+  txs.forEach(t => {
+    const key = new Date(t.date).toISOString().slice(0, 10);
+    map[key] = (map[key] || 0) + t.amount;
+  });
+  return Object.entries(map).sort((a, b) => a[0].localeCompare(b[0])).map(([date, amount]) => ({ date, amount }));
+}
+
+function categoryAverage(categoryId, excludeId) {
+  const amounts = state.transactions.filter(t => t.categoryId === categoryId && t.type === 'gasto' && t.id !== excludeId).map(t => t.amount);
+  if (amounts.length === 0) return null;
+  const avg = amounts.reduce((a, b) => a + b, 0) / amounts.length;
+  return { avg, count: amounts.length, min: Math.min(...amounts), max: Math.max(...amounts) };
+}
+
+function detectUnusual(tx) {
+  const stats = categoryAverage(tx.categoryId, tx.id);
+  if (!stats || stats.count < 3) return null;
+  if (tx.amount > stats.avg * 2) {
+    return `Este gasto en ${getCategory(tx.categoryId).name} (${fmtMoney(tx.amount)}) es considerablemente superior a tu gasto habitual registrado en esta categoría (promedio de ${fmtMoney(stats.avg)}).`;
+  }
+  return null;
+}
+
+function listUnusualExpenses(period, custom) {
+  const txs = filterByPeriod(state.transactions.filter(t => t.type === 'gasto'), period, custom);
+  const out = [];
+  txs.forEach(t => {
+    const msg = detectUnusual(t);
+    if (msg) out.push({ tx: t, msg });
+  });
+  return out.sort((a, b) => new Date(b.tx.date) - new Date(a.tx.date));
+}
+
+function weekdaySpend() {
+  const days = ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'];
+  const sums = new Array(7).fill(0);
+  state.transactions.filter(t => t.type === 'gasto').forEach(t => { sums[new Date(t.date).getDay()] += t.amount; });
+  let maxIdx = 0;
+  sums.forEach((v, i) => { if (v > sums[maxIdx]) maxIdx = i; });
+  return { day: days[maxIdx], amount: sums[maxIdx] };
+}
+
+function generateRecommendations(period, custom) {
+  const recs = [];
+  const txs = filterByPeriod(state.transactions, period, custom);
+  const totals = computeTotals(txs);
+  const breakdown = computeCategoryBreakdown(txs, 'gasto');
+
+  if (breakdown.length && totals.gastos > 0) {
+    const top = breakdown[0];
+    if (top.pct >= 20) {
+      const ahorroPotencial = top.amount * 0.10;
+      recs.push(`Este período tus gastos en ${top.cat.name} representan el ${fmtPct(top.pct)} de tus gastos totales. Si redujeras esta categoría en un 10%, ahorrarías aproximadamente ${fmtMoney(ahorroPotencial)}.`);
+    }
+  }
+
+  // comparación con mes anterior por categoría
+  const thisMonth = filterByPeriod(state.transactions, 'month');
+  const prevMonth = filterByPeriod(state.transactions, 'prevMonth');
+  const thisBreak = computeCategoryBreakdown(thisMonth, 'gasto');
+  const prevBreak = computeCategoryBreakdown(prevMonth, 'gasto');
+  thisBreak.forEach(c => {
+    const prev = prevBreak.find(p => p.categoryId === c.categoryId);
+    if (prev && prev.amount > 0) {
+      const change = ((c.amount - prev.amount) / prev.amount) * 100;
+      if (change >= 25) {
+        recs.push(`Según tus gastos registrados, tu categoría de ${c.cat.name} aumentó un ${fmtPct(change)} respecto al mes anterior (${fmtMoney(prev.amount)} → ${fmtMoney(c.amount)}).`);
+      }
+    }
+  });
+
+  if (totals.pctGastado >= 90 && totals.ingresos > 0) {
+    recs.push(`Podrías considerar revisar tus gastos: has utilizado el ${fmtPct(totals.pctGastado)} de tus ingresos en este período.`);
+  }
+
+  const wd = weekdaySpend();
+  if (wd.amount > 0) {
+    recs.push(`Una posible oportunidad de ahorro sería revisar tus gastos de los días ${wd.day}, que concentran el mayor gasto acumulado (${fmtMoney(wd.amount)}).`);
+  }
+
+  return recs;
+}
+
+/* ===================== PRESUPUESTOS ===================== */
+function budgetStatus() {
+  const txs = filterByPeriod(state.transactions.filter(t => t.type === 'gasto'), 'month');
+  const breakdown = computeCategoryBreakdown(txs, 'gasto');
+  return Object.entries(state.budgets).map(([categoryId, limit]) => {
+    const spent = (breakdown.find(b => b.categoryId === categoryId) || { amount: 0 }).amount;
+    const pct = limit > 0 ? (spent / limit) * 100 : 0;
+    return { categoryId, cat: getCategory(categoryId), limit, spent, pct, over: spent > limit };
+  });
+}
+
+/* ===================== AHORRO ===================== */
+function savingsSummary() {
+  const monthTxs = filterByPeriod(state.transactions, 'month');
+  const monthTotals = computeTotals(monthTxs);
+  const allTotals = computeTotals(state.transactions);
+  const goal = state.settings.savingsGoal || { amount: 0, date: '' };
+  const acumulado = Math.max(0, allTotals.balance);
+  const progressPct = goal.amount > 0 ? Math.min(100, (acumulado / goal.amount) * 100) : 0;
+  let monthlyNeeded = null;
+  if (goal.amount > 0 && goal.date) {
+    const now = new Date();
+    const target = new Date(goal.date);
+    let months = (target.getFullYear() - now.getFullYear()) * 12 + (target.getMonth() - now.getMonth());
+    months = Math.max(1, months);
+    monthlyNeeded = Math.max(0, (goal.amount - acumulado) / months);
+  }
+  return {
+    ahorroMes: monthTotals.balance,
+    pctAhorroMes: monthTotals.pctAhorro,
+    ahorroAcumulado: acumulado,
+    goal, progressPct, monthlyNeeded,
+  };
+}
+
+/* ===================== DISPONIBILIDAD DE DINERO ===================== */
+function computeAvailability() {
+  const monthTxs = filterByPeriod(state.transactions, 'month');
+  const totals = computeTotals(monthTxs);
+  const deudas = (state.debts || []).reduce((a, d) => a + d.amount, 0);
+  const disponible = totals.ingresos - totals.gastos - deudas;
+  const sav = savingsSummary();
+  const reservaAhorro = Math.max(0, sav.monthlyNeeded || 0);
+  const libreParaGastar = disponible - reservaAhorro;
+  return {
+    ingresos: totals.ingresos, gastosRealizados: totals.gastos, deudas,
+    disponible, reservaAhorro, libreParaGastar,
+  };
+}
+
+/* ===================== TENDENCIA DE AHORRO ===================== */
+function computeSavingsDeltas(months = 6) {
+  const monthly = computeMonthlySeries(months + 1);
+  const out = [];
+  for (let i = 1; i < monthly.length; i++) {
+    out.push({ label: monthly[i].label, delta: monthly[i].balance - monthly[i - 1].balance });
+  }
+  return out;
+}
+function savingsTrendInfo() {
+  const monthly = computeMonthlySeries(2);
+  if (monthly.length < 2) return { text: 'Aún no hay suficientes datos para comparar tu ahorro mes a mes.', dir: 'flat' };
+  const diff = monthly[1].balance - monthly[0].balance;
+  if (diff > 0) return { text: `Tu ahorro subió respecto al mes anterior (+${fmtMoney(diff)}).`, dir: 'up' };
+  if (diff < 0) return { text: `Tu ahorro bajó respecto al mes anterior (${fmtMoney(diff)}).`, dir: 'down' };
+  return { text: 'Tu ahorro se mantuvo igual respecto al mes anterior.', dir: 'flat' };
+}
+
+/* ===================== RESUMEN: QUÉ EVITAR PARA AHORRAR MÁS ===================== */
+function generateAvoidList(period, custom) {
+  const txs = filterByPeriod(state.transactions, period, custom);
+  const breakdown = computeCategoryBreakdown(txs, 'gasto');
+  const total = breakdown.reduce((a, b) => a + b.amount, 0);
+  if (!total) return [];
+  return breakdown.filter(b => b.pct >= 10).slice(0, 5).map(b => ({
+    cat: b.cat, amount: b.amount, pct: b.pct, potential: b.amount * 0.15,
+  }));
+}
+
+
+function normalize(str) {
+  return str.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim();
+}
+
+const INCOME_TRIGGERS = ['ingreso', 'ingresos', 'gane', 'gané', 'cobre', 'cobré', 'recibi', 'recibí', 'sueldo', 'nomina'];
+const EXPENSE_TRIGGERS = ['gasto', 'gastos', 'gaste', 'gasté', 'pague', 'pagué', 'compre', 'compré'];
+
+function hasWord(norm, word) {
+  const w = normalize(word).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  return new RegExp('(^|[^a-z0-9])' + w + '([^a-z0-9]|$)').test(norm);
+}
+
+function findCategoryMatch(text, type) {
+  const norm = normalize(text);
+  const cats = getCategoriesByType(type === 'ingreso' ? 'ingreso' : 'gasto');
+  for (const cat of cats) {
+    if (hasWord(norm, cat.name)) return cat;
+    for (const kw of (cat.keywords || [])) {
+      if (hasWord(norm, kw)) return cat;
+    }
+  }
+  return null;
+}
+
+function findAnyCategoryMatch(text) {
+  return findCategoryMatch(text, 'gasto') || findCategoryMatch(text, 'ingreso');
+}
+
+function extractAmount(text) {
+  const m = text.replace(/,/g, '').match(/\$?\s?(\d+(?:\.\d+)?)/);
+  return m ? parseFloat(m[1]) : null;
+}
+
+function detectType(text) {
+  const norm = normalize(text);
+  if (INCOME_TRIGGERS.some(w => hasWord(norm, w))) return 'ingreso';
+  if (EXPENSE_TRIGGERS.some(w => hasWord(norm, w))) return 'gasto';
+  return null;
+}
+
+// Parsea texto libre en uno o varios movimientos candidatos.
+// Devuelve lista de { amount, type, categoryId, description, ambiguous, rawText }
+function parseQuickEntry(text) {
+  const chunks = text.split(/\s+y\s+|,\s*/i).map(s => s.trim()).filter(Boolean);
+  const results = [];
+  chunks.forEach(chunk => {
+    const amount = extractAmount(chunk);
+    let type = detectType(chunk);
+    let cat = type ? findCategoryMatch(chunk, type) : findAnyCategoryMatch(chunk);
+    if (!type) {
+      // si la categoría encontrada es de ingresos, asumimos ingreso; si no, gasto por defecto
+      if (cat && state.categories.ingreso.some(c => c.id === cat.id)) type = 'ingreso';
+      else type = 'gasto';
+    }
+    const ambiguous = amount === null || !cat;
+    results.push({
+      amount, type, categoryId: cat ? cat.id : null,
+      description: chunk.replace(/\$?\s?\d+(?:[.,]\d+)?/, '').trim(),
+      ambiguous, rawText: chunk,
+    });
+  });
+  return results;
+}
+
+/* ===================== ASISTENTE FINANCIERO ===================== */
+function assistantAnswer(question) {
+  const norm = normalize(question);
+
+  // ¿Cuánto gasté ayer / hoy?
+  if (/ayer/.test(norm) && /gast/.test(norm)) {
+    const y = new Date(); y.setDate(y.getDate() - 1);
+    const txs = state.transactions.filter(t => t.type === 'gasto' && isSameDay(new Date(t.date), y));
+    const total = txs.reduce((a, t) => a + t.amount, 0);
+    return `Ayer gastaste ${fmtMoney(total)}${txs.length ? ' en ' + txs.length + ' movimiento(s).' : '.'}`;
+  }
+  if (/\bhoy\b/.test(norm) && /gast/.test(norm)) {
+    const today = new Date();
+    const txs = state.transactions.filter(t => t.type === 'gasto' && isSameDay(new Date(t.date), today));
+    const total = txs.reduce((a, t) => a + t.amount, 0);
+    return `Hoy has gastado ${fmtMoney(total)}${txs.length ? ' en ' + txs.length + ' movimiento(s).' : '.'}`;
+  }
+
+  // categoría donde más gasta (revisar antes del match genérico por nombre de categoría)
+  if (/categoria/.test(norm) && /(mas gasto|mas gastas|mayor gasto)/.test(norm)) {
+    const breakdown = computeCategoryBreakdown(filterByPeriod(state.transactions, 'month'), 'gasto');
+    if (!breakdown.length) return 'Todavía no tienes gastos registrados este mes.';
+    const top = breakdown[0];
+    return `Tu categoría con mayor gasto este mes es ${top.cat.name}, con ${fmtMoney(top.amount)} (${fmtPct(top.pct)} de tus gastos totales).`;
+  }
+
+  // ¿Cuánto gasté en <categoria> [este mes]?
+  const catMatch = findCategoryMatch(norm, 'gasto');
+  const reduceMatch = norm.match(/reduj\w*\s+(\w+)[^\d]*(\d+)\s?%/);
+  if (reduceMatch) {
+    const cat = findCategoryMatch(reduceMatch[1], 'gasto');
+    const pct = parseFloat(reduceMatch[2]);
+    if (cat) {
+      const txs = filterByPeriod(state.transactions, 'month').filter(t => t.type === 'gasto' && t.categoryId === cat.id);
+      const total = txs.reduce((a, t) => a + t.amount, 0);
+      const ahorro = total * (pct / 100);
+      return `Este mes has gastado ${fmtMoney(total)} en ${cat.name}. Si lo redujeras un ${pct}%, gastarías ${fmtMoney(ahorro)} menos al mes.`;
+    }
+  }
+  if (catMatch && /gast/.test(norm)) {
+    const monthTxs = filterByPeriod(state.transactions, 'month').filter(t => t.type === 'gasto');
+    const catTotal = monthTxs.filter(t => t.categoryId === catMatch.id).reduce((a, t) => a + t.amount, 0);
+    const totalGastos = monthTxs.reduce((a, t) => a + t.amount, 0);
+    const pct = totalGastos > 0 ? (catTotal / totalGastos) * 100 : 0;
+    return `Este mes has gastado ${fmtMoney(catTotal)} en ${catMatch.name}, equivalente al ${fmtPct(pct)} de tus gastos totales.`;
+  }
+
+  // cuánto he ahorrado
+  if (/ahorr/.test(norm)) {
+    const s = savingsSummary();
+    return `Este mes tu ahorro es de ${fmtMoney(s.ahorroMes)} (${fmtPct(s.pctAhorroMes)} de tus ingresos). Tu ahorro acumulado total es ${fmtMoney(s.ahorroAcumulado)}.`;
+  }
+
+  // en qué podría reducir
+  if (/reducir|ahorrar mas|donde reducir/.test(norm)) {
+    const recs = generateRecommendations('month');
+    if (recs.length) return recs[0];
+    return 'Según tus gastos registrados, no encuentro una categoría que destaque claramente por ahora. Sigue registrando movimientos para obtener mejores recomendaciones.';
+  }
+
+  return 'No cuento con datos suficientes para responder eso con precisión. Puedes preguntarme por ejemplo: "¿Cuánto gasté en comida este mes?", "¿Cuánto gasté ayer?", "¿Cuál es mi categoría donde más gasto?" o "¿Cuánto he ahorrado este mes?".';
+}
+
+/* ===================== UI STATE ===================== */
+let ui = {
+  route: 'chat',
+  period: 'month',
+  custom: { start: '', end: '' },
+  chat: { step: 'start', type: null, amount: null, categoryId: null, description: '', lastConfirmMsg: '', quickText: '', quickPreview: null },
+  assistantLog: [
+    { role: 'assistant', text: 'Hola 👋 Pregúntame sobre tus finanzas, por ejemplo: "¿Cuánto gasté en comida este mes?"' },
+  ],
+  assistantInput: '',
+  importPreview: null,
+  toastMsg: null,
+  toastType: 'info',
+};
+const chartInstances = {};
+
+function setRoute(r) { ui.route = r; ui.chat = { step: 'start', type: null, amount: null, categoryId: null, description: '', lastConfirmMsg: '', quickText: '', quickPreview: null }; render(); }
+function setPeriod(p) { ui.period = p; render(); }
+function setCustomRange(field, val) { ui.custom[field] = val; render(); }
+
+function toast(msg, type) {
+  ui.toastMsg = msg; ui.toastType = type || 'info';
+  render();
+  clearTimeout(window.__toastTimer);
+  window.__toastTimer = setTimeout(() => { ui.toastMsg = null; render(); }, 4200);
+}
+
+/* ===================== ESCAPADO ===================== */
+function esc(str) {
+  return String(str == null ? '' : str).replace(/[&<>"']/g, s => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[s]));
+}
+
+/* ===================== RENDER PRINCIPAL ===================== */
+function render() {
+  const root = document.getElementById('root');
+  root.innerHTML = `
+    ${renderHeader()}
+    <div class="layout">
+      ${renderSidebar()}
+      <main class="main">${renderView()}</main>
+    </div>
+    ${renderBottomNav()}
+    ${ui.toastMsg ? `<div class="toast toast-${ui.toastType}">${esc(ui.toastMsg)}</div>` : ''}
+  `;
+  afterRenderHooks();
+}
+
+function renderHeader() {
+  const cur = CURRENCIES[state.settings.currency] ? state.settings.currency : 'MXN';
+  return `
+    <header class="topbar">
+      <div class="brand">💸 <span>FinChat</span></div>
+      <div class="brand-sub">Moneda: <strong>${cur}</strong></div>
+    </header>`;
+}
+
+const NAV_ITEMS = [
+  { id: 'home', icon: '🏠', label: 'Inicio' },
+  { id: 'chat', icon: '💬', label: 'Registrar' },
+  { id: 'analysis', icon: '📊', label: 'Análisis' },
+  { id: 'budget', icon: '💰', label: 'Presupuesto' },
+  { id: 'assistant', icon: '🤖', label: 'Asistente' },
+  { id: 'settings', icon: '⚙️', label: 'Config' },
+];
+
+function renderSidebar() {
+  return `
+    <nav class="sidebar">
+      ${NAV_ITEMS.map(n => `
+        <button class="side-item ${ui.route === n.id ? 'active' : ''}" onclick="setRoute('${n.id}')">
+          <span class="nav-icon">${n.icon}</span><span>${n.label}</span>
+        </button>`).join('')}
+    </nav>`;
+}
+function renderBottomNav() {
+  const items = NAV_ITEMS.filter(n => n.id !== 'assistant' || true).slice(0, 5);
+  return `
+    <nav class="bottomnav">
+      ${[NAV_ITEMS[0], NAV_ITEMS[1], NAV_ITEMS[2], NAV_ITEMS[3], NAV_ITEMS[5]].map(n => `
+        <button class="bn-item ${ui.route === n.id ? 'active' : ''}" onclick="setRoute('${n.id}')">
+          <span class="nav-icon">${n.icon}</span><span>${n.label}</span>
+        </button>`).join('')}
+    </nav>`;
+}
+
+function renderView() {
+  switch (ui.route) {
+    case 'home': return renderHome();
+    case 'chat': return renderChat();
+    case 'analysis': return renderAnalysis();
+    case 'budget': return renderBudget();
+    case 'assistant': return renderAssistant();
+    case 'settings': return renderSettings();
+    default: return renderHome();
+  }
+}
+
+/* ===================== SELECTOR DE PERIODO (compartido) ===================== */
+function periodSelectorHtml() {
+  const opts = [
+    ['month', 'Este mes'], ['prevMonth', 'Mes anterior'], ['last3', 'Últimos 3 meses'],
+    ['last6', 'Últimos 6 meses'], ['year', 'Este año'], ['custom', 'Rango personalizado'],
+  ];
+  return `
+    <div class="period-bar">
+      <select onchange="setPeriod(this.value)" class="select">
+        ${opts.map(([v, l]) => `<option value="${v}" ${ui.period === v ? 'selected' : ''}>${l}</option>`).join('')}
+      </select>
+      ${ui.period === 'custom' ? `
+        <input type="date" class="select" value="${esc(ui.custom.start)}" onchange="setCustomRange('start', this.value)">
+        <input type="date" class="select" value="${esc(ui.custom.end)}" onchange="setCustomRange('end', this.value)">
+      ` : ''}
+    </div>`;
+}
+function currentTxs() { return filterByPeriod(state.transactions, ui.period, ui.custom); }
+
+/* ===================== VISTA: HOME / DASHBOARD ===================== */
+function renderHome() {
+  const txs = currentTxs();
+  const totals = computeTotals(txs);
+  const breakdown = computeCategoryBreakdown(txs, 'gasto');
+  const unusual = listUnusualExpenses(ui.period, ui.custom).slice(0, 3);
+  const recs = generateRecommendations(ui.period, ui.custom).slice(0, 2);
+
+  return `
+    ${periodSelectorHtml()}
+    <div class="cards-grid">
+      <div class="card kpi kpi-green"><div class="kpi-label">Ingresos</div><div class="kpi-value">${fmtMoney(totals.ingresos)}</div></div>
+      <div class="card kpi kpi-red"><div class="kpi-label">Gastos</div><div class="kpi-value">${fmtMoney(totals.gastos)}</div></div>
+      <div class="card kpi kpi-blue"><div class="kpi-label">Balance</div><div class="kpi-value">${fmtMoney(totals.balance)}</div></div>
+      <div class="card kpi"><div class="kpi-label">% de ingresos gastado</div><div class="kpi-value">${fmtPct(totals.pctGastado)}</div></div>
+      <div class="card kpi kpi-green"><div class="kpi-label">Ahorro (% de ingresos)</div><div class="kpi-value">${fmtPct(totals.pctAhorro)}</div></div>
+    </div>
+
+    ${unusual.length ? `
+      <div class="card alert-card">
+        <div class="card-title">⚠️ Gastos inusuales detectados</div>
+        ${unusual.map(u => `<div class="alert-line">${esc(u.msg)}</div>`).join('')}
+      </div>` : ''}
+
+    <div class="card">
+      <div class="card-title">Comparativa de gastos mensuales</div>
+      <div class="chart-wrap"><canvas id="chart-home-monthly-expenses"></canvas></div>
+      <div class="muted">Compara cuánto gastaste en cada uno de los últimos 6 meses.</div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">Gastos por categoría</div>
+      ${breakdown.length ? `
+        <div class="chart-wrap"><canvas id="chart-home-doughnut"></canvas></div>
+        <table class="table">
+          <thead><tr><th>Categoría</th><th>Total</th><th>%</th></tr></thead>
+          <tbody>
+            ${breakdown.map(b => `<tr><td>${b.cat.icon} ${esc(b.cat.name)}</td><td>${fmtMoney(b.amount)}</td><td>${fmtPct(b.pct)}</td></tr>`).join('')}
+          </tbody>
+        </table>
+      ` : `<div class="empty">Aún no hay gastos registrados en este período.</div>`}
+    </div>
+
+    ${recs.length ? `
+      <div class="card">
+        <div class="card-title">💡 Recomendaciones</div>
+        ${recs.map(r => `<div class="rec-line">${esc(r)}</div>`).join('')}
+      </div>` : ''}
+
+    <button class="btn btn-primary btn-block btn-lg" onclick="setRoute('analysis')">📊 GENERAR ANÁLISIS</button>
+  `;
+}
+
+/* ===================== VISTA: CHAT / REGISTRAR ===================== */
+function renderChat() {
+  return `
+    ${renderAvailabilityCard()}
+    <div class="card">
+      <div class="card-title">⚡ Registro rápido</div>
+      <p class="muted">Escribe algo como "250 comida", "gasto 500 recibos" o "ingreso 15000 sueldo".</p>
+      <textarea id="quickText" class="textarea" placeholder="Ej: gasté 250 en comida y 80 en transporte" oninput="ui.chat.quickText=this.value"></textarea>
+      <button class="btn btn-secondary btn-block" onclick="interpretQuickEntry()">Interpretar</button>
+      ${renderQuickPreview()}
+    </div>
+    <div class="card chat-card">
+      <div class="card-title">💬 Registro guiado</div>
+      ${renderChatFlow()}
+    </div>
+    ${renderMonthlyPieCard()}
+  `;
+}
+
+function renderAvailabilityCard() {
+  const a = computeAvailability();
+  const estado = a.libreParaGastar > 0
+    ? { cls: 'avail-ok', msg: `Sí te queda dinero libre para este gasto: ${fmtMoney(a.libreParaGastar)}.` }
+    : a.disponible > 0
+      ? { cls: 'avail-warn', msg: `Tu dinero libre ya está comprometido con tu meta de ahorro. Si gastas, saldrá de tu ahorro planeado.` }
+      : { cls: 'avail-danger', msg: `Ya no te queda dinero disponible este mes según tus ingresos, gastos y deudas registradas.` };
+  return `
+    <div class="card avail-card ${estado.cls}">
+      <div class="card-title">💡 ¿Puedo gastar en esto?</div>
+      <div class="avail-grid">
+        <div class="avail-box avail-box-save">
+          <div class="avail-label">Disponible para ahorro</div>
+          <div class="avail-value">${fmtMoney(a.reservaAhorro)}</div>
+          <div class="avail-note">Reservado para tu meta</div>
+        </div>
+        <div class="avail-box avail-box-free">
+          <div class="avail-label">Libre para gastar</div>
+          <div class="avail-value">${fmtMoney(Math.max(0, a.libreParaGastar))}</div>
+          <div class="avail-note">Después de todo lo comprometido</div>
+        </div>
+      </div>
+      <div class="avail-msg">${esc(estado.msg)}</div>
+      <details class="avail-details">
+        <summary>Ver cómo se calcula</summary>
+        <div class="avail-calc">
+          <div><span>Ingresos del mes</span><strong class="pos">${fmtMoney(a.ingresos)}</strong></div>
+          <div><span>− Gastos ya registrados</span><strong class="neg">${fmtMoney(a.gastosRealizados)}</strong></div>
+          <div><span>− Deudas / pagos pendientes</span><strong class="neg">${fmtMoney(a.deudas)}</strong></div>
+          <div class="avail-calc-total"><span>= Disponible total</span><strong>${fmtMoney(a.disponible)}</strong></div>
+          <div><span>− Reserva para meta de ahorro</span><strong class="neg">${fmtMoney(a.reservaAhorro)}</strong></div>
+          <div class="avail-calc-total"><span>= Libre para gastar</span><strong>${fmtMoney(a.libreParaGastar)}</strong></div>
+        </div>
+        <p class="muted">Administra tus deudas y pagos pendientes en la pestaña Presupuesto.</p>
+      </details>
+    </div>`;
+}
+
+function renderMonthlyPieCard() {
+  const txs = filterByPeriod(state.transactions, 'month');
+  const totals = computeTotals(txs);
+  const totalFlow = totals.ingresos + totals.gastos;
+  const pctIngresos = totalFlow > 0 ? (totals.ingresos / totalFlow) * 100 : 0;
+  const pctGastos = totalFlow > 0 ? (totals.gastos / totalFlow) * 100 : 0;
+  return `
+    <div class="card">
+      <div class="card-title">Ingresos vs gastos del mes</div>
+      <div class="chart-wrap chart-pie"><canvas id="chart-chat-pie"></canvas></div>
+      <div class="pie-legend">
+        <div class="pie-legend-item"><span class="dot dot-green"></span> Ingresos <strong>${fmtPct(pctIngresos)}</strong> · ${fmtMoney(totals.ingresos)}</div>
+        <div class="pie-legend-item"><span class="dot dot-red"></span> Gastos <strong>${fmtPct(pctGastos)}</strong> · ${fmtMoney(totals.gastos)}</div>
+      </div>
+      ${totalFlow === 0 ? '<div class="empty">Registra un movimiento para ver la gráfica actualizarse.</div>' : ''}
+    </div>`;
+}
+
+function renderQuickPreview() {
+  if (!ui.chat.quickPreview) return '';
+  const items = ui.chat.quickPreview;
+  return `
+    <div class="preview-box">
+      <div class="card-title">Vas a registrar:</div>
+      ${items.map((it, i) => `
+        <div class="preview-item ${it.ambiguous ? 'preview-warn' : ''}">
+          <div class="preview-row">
+            <select class="select" onchange="quickPreviewSet(${i},'type',this.value)">
+              <option value="gasto" ${it.type === 'gasto' ? 'selected' : ''}>Gasto</option>
+              <option value="ingreso" ${it.type === 'ingreso' ? 'selected' : ''}>Ingreso</option>
+            </select>
+            <input class="input" type="number" step="0.01" value="${it.amount == null ? '' : it.amount}" placeholder="Cantidad" onchange="quickPreviewSet(${i},'amount',this.value)">
+          </div>
+          <div class="preview-row">
+            <select class="select" onchange="quickPreviewSet(${i},'categoryId',this.value)">
+              <option value="">Selecciona categoría</option>
+              ${getCategoriesByType(it.type).map(c => `<option value="${c.id}" ${it.categoryId === c.id ? 'selected' : ''}>${c.icon} ${esc(c.name)}</option>`).join('')}
+            </select>
+            <input class="input" type="text" value="${esc(it.description || '')}" placeholder="Descripción (opcional)" onchange="quickPreviewSet(${i},'description',this.value)">
+          </div>
+          ${it.ambiguous ? '<div class="warn-text">Falta confirmar cantidad y/o categoría antes de guardar.</div>' : ''}
+          <button class="btn btn-danger-outline btn-sm" onclick="quickPreviewRemove(${i})">Eliminar</button>
+        </div>
+      `).join('')}
+      <button class="btn btn-primary btn-block" onclick="quickPreviewSaveAll()">Guardar todo</button>
+    </div>
+  `;
+}
+
+function interpretQuickEntry() {
+  const text = (ui.chat.quickText || '').trim();
+  if (!text) { toast('Escribe algo para interpretar.', 'error'); return; }
+  const parsed = parseQuickEntry(text);
+  ui.chat.quickPreview = parsed.map(p => ({ ...p, ambiguous: p.amount == null || !p.categoryId }));
+  render();
+}
+function quickPreviewSet(i, field, val) {
+  const it = ui.chat.quickPreview[i];
+  if (field === 'amount') val = val === '' ? null : parseFloat(val);
+  if (field === 'type' && it.categoryId) {
+    // si cambia el tipo, la categoría anterior puede ya no aplicar
+    if (!getCategoriesByType(val).some(c => c.id === it.categoryId)) it.categoryId = null;
+  }
+  it[field] = val;
+  it.ambiguous = it.amount == null || !it.categoryId;
+  render();
+}
+function quickPreviewRemove(i) { ui.chat.quickPreview.splice(i, 1); render(); }
+function quickPreviewSaveAll() {
+  const items = ui.chat.quickPreview || [];
+  if (!items.length) return;
+  if (items.some(it => it.ambiguous)) { toast('Completa cantidad y categoría en todos los movimientos antes de guardar.', 'error'); return; }
+  let alerts = [];
+  items.forEach(it => {
+    const tx = addTransaction(it.type, it.amount, it.categoryId, it.description || '', '');
+    const msg = detectUnusual(tx);
+    if (msg) alerts.push(msg);
+  });
+  ui.chat.quickText = ''; ui.chat.quickPreview = null;
+  toast(`✓ ${items.length} movimiento(s) registrado(s).`, 'success');
+  if (alerts.length) setTimeout(() => toast(alerts[0], 'warn'), 1600);
+  render();
+}
+
+function renderChatFlow() {
+  const c = ui.chat;
+  if (c.step === 'start') {
+    return `
+      <div class="bubble">¿Qué quieres registrar?</div>
+      <div class="chat-buttons">
+        <button class="btn btn-danger btn-lg" onclick="chatStart('gasto')">+ GASTO</button>
+        <button class="btn btn-success btn-lg" onclick="chatStart('ingreso')">+ INGRESO</button>
+      </div>`;
+  }
+  if (c.step === 'amount') {
+    return `
+      <div class="bubble">¿Cuánto ${c.type === 'gasto' ? 'gastaste' : 'ingresaste'}?</div>
+      <input id="chatAmount" class="input input-lg" type="number" step="0.01" placeholder="0.00" autofocus>
+      <button class="btn btn-primary btn-block" onclick="chatSetAmount()">Continuar</button>`;
+  }
+  if (c.step === 'category') {
+    const cats = getCategoriesByType(c.type);
+    return `
+      <div class="bubble">${fmtMoney(c.amount)} — ¿En qué categoría?</div>
+      <div class="cat-grid">
+        ${cats.map(cat => `<button class="cat-btn" onclick="chatSetCategory('${cat.id}')">${cat.icon}<span>${esc(cat.name)}</span></button>`).join('')}
+      </div>`;
+  }
+  if (c.step === 'description') {
+    return `
+      <div class="bubble">¿Quieres añadir una descripción?</div>
+      <div class="chat-buttons">
+        <button class="btn btn-secondary" onclick="chatSkipDescription()">Omitir</button>
+        <button class="btn btn-secondary" onclick="ui.chat.step='description_input';render()">Añadir descripción</button>
+      </div>`;
+  }
+  if (c.step === 'description_input') {
+    return `
+      <div class="bubble">Escribe una descripción:</div>
+      <input id="chatDescription" class="input" type="text" placeholder="Ej. Supermercado">
+      <button class="btn btn-primary btn-block" onclick="chatSaveWithDescription()">Guardar</button>`;
+  }
+  if (c.step === 'done') {
+    return `
+      <div class="bubble bubble-success">✓ ${esc(c.lastConfirmMsg)}</div>
+      <button class="btn btn-primary btn-block" onclick="chatStart(null)">Registrar otro</button>`;
+  }
+  return '';
+}
+
+function chatStart(type) {
+  if (!type) { ui.chat = { step: 'start', type: null, amount: null, categoryId: null, description: '', lastConfirmMsg: '' }; render(); return; }
+  ui.chat = { step: 'amount', type, amount: null, categoryId: null, description: '', lastConfirmMsg: '' };
+  render();
+}
+function chatSetAmount() {
+  const val = parseFloat(document.getElementById('chatAmount').value);
+  if (!val || val <= 0) { toast('Ingresa una cantidad válida mayor a cero.', 'error'); return; }
+  ui.chat.amount = val; ui.chat.step = 'category'; render();
+}
+function chatSetCategory(catId) {
+  ui.chat.categoryId = catId; ui.chat.step = 'description'; render();
+}
+function chatSkipDescription() { finalizeChatTx(''); }
+function chatSaveWithDescription() {
+  const desc = document.getElementById('chatDescription').value;
+  finalizeChatTx(desc);
+}
+function finalizeChatTx(desc) {
+  const c = ui.chat;
+  const tx = addTransaction(c.type, c.amount, c.categoryId, desc, '');
+  const cat = getCategory(c.categoryId);
+  const verb = c.type === 'gasto' ? 'Gasto' : 'Ingreso';
+  ui.chat.lastConfirmMsg = `${verb} de ${fmtMoney(c.amount)} registrado en ${cat.name}.`;
+  ui.chat.step = 'done';
+  render();
+  const msg = detectUnusual(tx);
+  if (msg) setTimeout(() => toast(msg, 'warn'), 700);
+  else {
+    const bstat = budgetStatus().find(b => b.categoryId === c.categoryId);
+    if (bstat && c.type === 'gasto') {
+      if (bstat.over) setTimeout(() => toast(`Has superado tu presupuesto mensual de ${bstat.cat.name} en ${fmtMoney(bstat.spent - bstat.limit)}.`, 'warn'), 700);
+      else if (bstat.pct >= 80) setTimeout(() => toast(`Has utilizado el ${fmtPct(bstat.pct)} de tu presupuesto de ${bstat.cat.name}.`, 'warn'), 700);
+    }
+  }
+}
+
+function addTransaction(type, amount, categoryId, description, notes) {
+  const tx = { id: uid(), type, amount, categoryId, description: description || '', notes: notes || '', date: new Date().toISOString(), isDemo: false };
+  state.transactions.push(tx);
+  saveState();
+  return tx;
+}
+
+/* ===================== VISTA: ANÁLISIS ===================== */
+function renderAnalysis() {
+  const txs = currentTxs();
+  const totals = computeTotals(txs);
+  const breakdown = computeCategoryBreakdown(txs, 'gasto');
+  const monthly = computeMonthlySeries(6);
+  const daily = computeDailySeries(ui.period, ui.custom);
+  const recs = generateRecommendations(ui.period, ui.custom);
+  const unusual = listUnusualExpenses(ui.period, ui.custom);
+  const wd = weekdaySpend();
+  const days = txs.length ? Math.max(1, Math.round((new Date() - new Date(Math.min(...txs.map(t => new Date(t.date))))) / 86400000) + 1) : 1;
+  const promDiario = totals.gastos / Math.max(1, Math.min(days, 31));
+  const mesesData = monthly.filter(m => m.gastos > 0 || m.ingresos > 0);
+  const promMensual = mesesData.length ? mesesData.reduce((a, m) => a + m.gastos, 0) / mesesData.length : 0;
+  const mayorGasto = txs.filter(t => t.type === 'gasto').sort((a, b) => b.amount - a.amount)[0];
+  const thisM = monthly[monthly.length - 1], prevM = monthly[monthly.length - 2];
+  const cambioGastos = prevM && prevM.gastos > 0 ? ((thisM.gastos - prevM.gastos) / prevM.gastos) * 100 : null;
+  const trend = savingsTrendInfo();
+  const avoid = generateAvoidList(ui.period, ui.custom);
+
+  return `
+    ${periodSelectorHtml()}
+    <div class="card">
+      <div class="card-title">Ingresos vs gastos (últimos 6 meses)</div>
+      <div class="chart-wrap"><canvas id="chart-monthly"></canvas></div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">Ingresos menos gastos (resultado neto por mes)</div>
+      <div class="chart-wrap"><canvas id="chart-net"></canvas></div>
+      <div class="muted">Las barras verdes son meses con superávit; las rojas, meses en números rojos.</div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">Gastos por categoría</div>
+      ${breakdown.length ? `
+        <div class="chart-wrap chart-pie"><canvas id="chart-cat-doughnut"></canvas></div>
+        <div class="chart-wrap"><canvas id="chart-cat-bars"></canvas></div>
+      ` : `<div class="empty">Sin datos en este período.</div>`}
+    </div>
+
+    <div class="card">
+      <div class="card-title">Evolución del ahorro</div>
+      <div class="trend-badge trend-${trend.dir}">
+        ${trend.dir === 'up' ? '▲' : trend.dir === 'down' ? '▼' : '■'} ${esc(trend.text)}
+      </div>
+      <div class="chart-wrap"><canvas id="chart-savings-line"></canvas></div>
+      <div class="card-title" style="margin-top:14px">Desniveles mensuales del ahorro</div>
+      <div class="chart-wrap"><canvas id="chart-savings-delta"></canvas></div>
+      <div class="muted">Cada barra muestra cuánto subió o bajó tu ahorro respecto al mes anterior.</div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">Gastos diarios</div>
+      ${daily.length ? `<div class="chart-wrap"><canvas id="chart-daily"></canvas></div>` : `<div class="empty">Sin gastos diarios en este período.</div>`}
+    </div>
+
+    ${avoid.length ? `
+      <div class="card avoid-card">
+        <div class="card-title">✂️ Qué conviene evitar para ahorrar más</div>
+        <p class="muted">Según tus gastos registrados, estas son las categorías que más peso tienen. Reducir cada una un 15% liberaría:</p>
+        ${avoid.map(a => `
+          <div class="avoid-row">
+            <div class="avoid-head">
+              <span>${a.cat.icon} ${esc(a.cat.name)}</span>
+              <strong class="gold-text">+${fmtMoney(a.potential)}</strong>
+            </div>
+            <div class="progress"><div class="progress-fill gold" style="width:${Math.min(100, a.pct)}%"></div></div>
+            <div class="budget-sub">Gastaste ${fmtMoney(a.amount)} · ${fmtPct(a.pct)} de tus gastos totales</div>
+          </div>`).join('')}
+        <div class="avoid-total">Si redujeras todas un 15%, podrías ahorrar aproximadamente <strong>${fmtMoney(avoid.reduce((s, a) => s + a.potential, 0))}</strong> en este período.</div>
+        <p class="muted">Estas son estimaciones basadas únicamente en tus movimientos registrados, no recomendaciones garantizadas.</p>
+      </div>` : ''}
+
+    <div class="card">
+      <div class="card-title">Indicadores</div>
+      <div class="stats-grid">
+        <div class="stat"><div class="stat-label">Promedio diario de gasto</div><div class="stat-value">${fmtMoney(promDiario)}</div></div>
+        <div class="stat"><div class="stat-label">Promedio semanal</div><div class="stat-value">${fmtMoney(promDiario * 7)}</div></div>
+        <div class="stat"><div class="stat-label">Promedio mensual</div><div class="stat-value">${fmtMoney(promMensual)}</div></div>
+        <div class="stat"><div class="stat-label">Mayor gasto registrado</div><div class="stat-value">${mayorGasto ? fmtMoney(mayorGasto.amount) + ' · ' + getCategory(mayorGasto.categoryId).name : '—'}</div></div>
+        <div class="stat"><div class="stat-label">Categoría con más gasto</div><div class="stat-value">${breakdown[0] ? breakdown[0].cat.name : '—'}</div></div>
+        <div class="stat"><div class="stat-label">Día con mayor gasto acumulado</div><div class="stat-value">${wd.amount > 0 ? wd.day : '—'}</div></div>
+        <div class="stat"><div class="stat-label">Cambio vs mes anterior</div><div class="stat-value">${cambioGastos == null ? '—' : (cambioGastos >= 0 ? '▲ ' : '▼ ') + fmtPct(Math.abs(cambioGastos))}</div></div>
+      </div>
+    </div>
+
+    ${recs.length ? `<div class="card"><div class="card-title">💡 Recomendaciones</div>${recs.map(r => `<div class="rec-line">${esc(r)}</div>`).join('')}</div>` : ''}
+    ${unusual.length ? `<div class="card alert-card"><div class="card-title">⚠️ Gastos inusuales</div>${unusual.map(u => `<div class="alert-line">${esc(u.msg)}</div>`).join('')}</div>` : ''}
+  `;
+}
+
+/* ===================== VISTA: PRESUPUESTO / AHORRO ===================== */
+function renderBudget() {
+  const expenseCats = getCategoriesByType('gasto');
+  const statuses = budgetStatus();
+  const sav = savingsSummary();
+  return `
+    <div class="card">
+      <div class="card-title">Presupuestos mensuales</div>
+      ${expenseCats.map(cat => {
+        const st = statuses.find(s => s.categoryId === cat.id);
+        const limit = state.budgets[cat.id] || 0;
+        const spent = st ? st.spent : 0;
+        const pct = st ? st.pct : 0;
+        return `
+        <div class="budget-row">
+          <div class="budget-head">
+            <span>${cat.icon} ${esc(cat.name)}</span>
+            <input class="input input-sm" type="number" min="0" step="1" value="${limit || ''}" placeholder="Sin límite"
+              onchange="setBudget('${cat.id}', this.value)">
+          </div>
+          ${limit > 0 ? `
+            <div class="budget-chart-row">
+              <div class="budget-chart"><canvas id="chart-budget-${cat.id}"></canvas></div>
+              <div class="budget-chart-info">
+                <div class="bl-item"><span class="dot dot-gold"></span> Monto destinado <strong>${fmtMoney(limit)}</strong></div>
+                <div class="bl-item"><span class="dot ${pct >= 100 ? 'dot-red' : 'dot-blue'}"></span> Ya gastado <strong>${fmtMoney(spent)}</strong></div>
+                <div class="bl-item"><span class="dot dot-neutral"></span> Restante <strong>${fmtMoney(Math.max(0, limit - spent))}</strong></div>
+                <div class="budget-sub">${fmtPct(pct)} utilizado
+                  ${pct >= 100 ? ` — Has superado tu presupuesto mensual de ${esc(cat.name)} en ${fmtMoney(spent - limit)}.` : pct >= 80 ? ` — Te estás acercando al límite.` : ''}
+                </div>
+              </div>
+            </div>` : `<div class="budget-sub muted">Sin presupuesto asignado (gasto actual: ${fmtMoney(spent)})</div>`}
+        </div>`;
+      }).join('')}
+    </div>
+
+    <div class="card">
+      <div class="card-title">📌 Deudas y pagos pendientes del mes</div>
+      <p class="muted">Se restan de tu dinero disponible al registrar un movimiento.</p>
+      ${(state.debts || []).length ? (state.debts || []).map(d => `
+        <div class="cat-manage-row">
+          <span>${esc(d.name)} — <strong class="neg">${fmtMoney(d.amount)}</strong></span>
+          <button class="btn btn-danger-outline btn-sm" onclick="deleteDebt('${d.id}')">Eliminar</button>
+        </div>`).join('') : '<div class="empty">No tienes deudas ni pagos pendientes registrados.</div>'}
+      <div class="preview-row" style="margin-top:10px">
+        <input id="newDebtName" class="input" type="text" placeholder="Concepto (ej. Tarjeta de crédito)">
+        <input id="newDebtAmount" class="input" type="number" min="0" step="1" placeholder="Monto">
+        <button class="btn btn-secondary" onclick="addDebt()">Agregar</button>
+      </div>
+      <div class="budget-sub">Total pendiente: <strong class="neg">${fmtMoney((state.debts || []).reduce((a, d) => a + d.amount, 0))}</strong></div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">💰 Ahorro</div>
+      <div class="cards-grid">
+        <div class="card kpi kpi-green"><div class="kpi-label">Ahorro del mes</div><div class="kpi-value">${fmtMoney(sav.ahorroMes)}</div></div>
+        <div class="card kpi kpi-blue"><div class="kpi-label">Ahorro acumulado</div><div class="kpi-value">${fmtMoney(sav.ahorroAcumulado)}</div></div>
+        <div class="card kpi"><div class="kpi-label">% de ahorro (mes)</div><div class="kpi-value">${fmtPct(sav.pctAhorroMes)}</div></div>
+      </div>
+      <div class="budget-head" style="margin-top:12px">
+        <span>Objetivo de ahorro</span>
+      </div>
+      <div class="preview-row">
+        <input class="input" type="number" min="0" step="100" placeholder="Cantidad objetivo" value="${sav.goal.amount || ''}" onchange="setSavingsGoal('amount', this.value)">
+        <input class="input" type="date" value="${esc(sav.goal.date || '')}" onchange="setSavingsGoal('date', this.value)">
+      </div>
+      ${sav.goal.amount > 0 ? `
+        <div class="progress"><div class="progress-fill" style="width:${sav.progressPct}%"></div></div>
+        <div class="budget-sub">${fmtMoney(sav.ahorroAcumulado)} / ${fmtMoney(sav.goal.amount)} · ${fmtPct(sav.progressPct)}</div>
+        ${sav.monthlyNeeded != null ? `<div class="budget-sub">Necesitas ahorrar aproximadamente ${fmtMoney(sav.monthlyNeeded)} por mes para alcanzar tu objetivo en la fecha indicada.</div>` : ''}
+      ` : `<div class="muted">Define una cantidad objetivo para ver tu progreso.</div>`}
+    </div>
+  `;
+}
+function addDebt() {
+  const name = document.getElementById('newDebtName').value.trim();
+  const amount = parseFloat(document.getElementById('newDebtAmount').value);
+  if (!name) { toast('Escribe el concepto de la deuda o pago.', 'error'); return; }
+  if (!amount || amount <= 0) { toast('Ingresa un monto válido mayor a cero.', 'error'); return; }
+  if (!state.debts) state.debts = [];
+  state.debts.push({ id: uid(), name, amount });
+  saveState(); toast('Pago pendiente agregado.', 'success'); render();
+}
+function deleteDebt(id) {
+  if (!confirm('¿Eliminar este pago pendiente?')) return;
+  state.debts = (state.debts || []).filter(d => d.id !== id);
+  saveState(); render();
+}
+function setBudget(catId, val) {
+  const n = parseFloat(val);
+  if (!val || isNaN(n) || n <= 0) { delete state.budgets[catId]; } else { state.budgets[catId] = n; }
+  saveState(); render();
+}
+function setSavingsGoal(field, val) {
+  if (!state.settings.savingsGoal) state.settings.savingsGoal = { amount: 0, date: '' };
+  state.settings.savingsGoal[field] = field === 'amount' ? (parseFloat(val) || 0) : val;
+  saveState(); render();
+}
+
+/* ===================== VISTA: ASISTENTE ===================== */
+function renderAssistant() {
+  const suggestions = ['¿Cuánto gasté en comida este mes?', '¿Cuánto gasté ayer?', '¿Cuál es mi categoría donde más gasto?', '¿Cuánto he ahorrado este mes?', '¿En qué podría reducir mis gastos?'];
+  return `
+    <div class="card assistant-card">
+      <div class="card-title">🤖 Asistente financiero</div>
+      <p class="muted">Responde solo con base en tus movimientos registrados.</p>
+      <div class="assistant-log">
+        ${ui.assistantLog.map(m => `<div class="bubble ${m.role === 'user' ? 'bubble-user' : ''}">${esc(m.text)}</div>`).join('')}
+      </div>
+      <div class="chip-row">
+        ${suggestions.map(s => `<button class="chip" onclick="askAssistantChip(${JSON.stringify(s)})">${esc(s)}</button>`).join('')}
+      </div>
+      <div class="preview-row">
+        <input id="assistantInput" class="input" type="text" placeholder="Escribe tu pregunta..." onkeydown="if(event.key==='Enter')askAssistant()">
+        <button class="btn btn-primary" onclick="askAssistant()">Enviar</button>
+      </div>
+    </div>`;
+}
+function askAssistantChip(text) { document.getElementById('assistantInput') && (document.getElementById('assistantInput').value = text); askAssistantText(text); }
+function askAssistant() {
+  const input = document.getElementById('assistantInput');
+  const text = input ? input.value.trim() : '';
+  if (!text) return;
+  askAssistantText(text);
+}
+function askAssistantText(text) {
+  ui.assistantLog.push({ role: 'user', text });
+  const answer = assistantAnswer(text);
+  ui.assistantLog.push({ role: 'assistant', text: answer });
+  render();
+  setTimeout(() => { const log = document.querySelector('.assistant-log'); if (log) log.scrollTop = log.scrollHeight; }, 0);
+}
+
+/* ===================== VISTA: CONFIGURACIÓN ===================== */
+function renderSettings() {
+  return `
+    <div class="card">
+      <div class="card-title">Moneda</div>
+      <select class="select" onchange="setCurrency(this.value)">
+        ${Object.keys(CURRENCIES).map(c => `<option value="${c}" ${state.settings.currency === c ? 'selected' : ''}>${c}</option>`).join('')}
+      </select>
+    </div>
+
+    <div class="card">
+      <div class="card-title">Categorías</div>
+      ${['gasto', 'ingreso'].map(type => `
+        <div class="cat-manage-group">
+          <div class="muted">${type === 'gasto' ? 'Gastos' : 'Ingresos'}</div>
+          ${getCategoriesByType(type).map(c => `
+            <div class="cat-manage-row">
+              <span>${c.icon} ${esc(c.name)}</span>
+              <button class="btn btn-danger-outline btn-sm" onclick="deleteCategory('${type}','${c.id}')">Eliminar</button>
+            </div>`).join('')}
+        </div>`).join('')}
+      <div class="preview-row" style="margin-top:8px">
+        <input id="newCatName" class="input" type="text" placeholder="Nueva categoría">
+        <select id="newCatType" class="select">
+          <option value="gasto">Gasto</option>
+          <option value="ingreso">Ingreso</option>
+        </select>
+        <button class="btn btn-secondary" onclick="addCategory()">Agregar</button>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">Exportar / Importar</div>
+      <button class="btn btn-primary btn-block" onclick="exportExcel()">⬇️ Exportar a Excel (.xlsx)</button>
+      <div style="height:10px"></div>
+      <label class="muted">Importar movimientos desde Excel/CSV</label>
+      <input type="file" id="importFile" accept=".xlsx,.xls,.csv" class="input" onchange="handleImportFile(event)">
+      ${renderImportPreview()}
+    </div>
+
+    <div class="card">
+      <div class="card-title">Datos</div>
+      <button class="btn btn-secondary btn-block" onclick="restoreDemoData()">↻ Restablecer con datos de prueba</button>
+      <div style="height:8px"></div>
+      <button class="btn btn-danger btn-block" onclick="confirmDeleteAll()">🗑️ Eliminar todos mis datos</button>
+      <p class="muted" style="margin-top:8px">Nota: esta demo funciona con un solo usuario y guarda todo en el almacenamiento de este navegador. La versión de producción (con inicio de sesión, cifrado y base de datos por usuario) requiere el backend descrito en la fase de arquitectura.</p>
+    </div>
+  `;
+}
+function setCurrency(c) { state.settings.currency = c; saveState(); render(); }
+function deleteCategory(type, id) {
+  const inUse = state.transactions.some(t => t.categoryId === id);
+  if (inUse && !confirm('Esta categoría tiene movimientos registrados. ¿Eliminarla de todas formas? Los movimientos existentes conservarán la categoría por su nombre histórico.')) return;
+  state.categories[type] = state.categories[type].filter(c => c.id !== id);
+  saveState(); render();
+}
+function addCategory() {
+  const name = document.getElementById('newCatName').value.trim();
+  const type = document.getElementById('newCatType').value;
+  if (!name) { toast('Escribe un nombre de categoría.', 'error'); return; }
+  const id = normalize(name).replace(/[^a-z0-9]+/g, '_') + '_' + Math.random().toString(36).slice(2, 5);
+  state.categories[type].push({ id, name, icon: type === 'gasto' ? '📦' : '💵', keywords: [normalize(name)] });
+  saveState(); render();
+}
+function confirmDeleteAll() {
+  if (!confirm('¿Seguro que quieres eliminar TODOS tus datos? Esta acción no se puede deshacer.')) return;
+  state = defaultState();
+  state.transactions = []; // sin datos de demo
+  saveState(); toast('Todos tus datos han sido eliminados.', 'success'); setRoute('home');
+}
+function restoreDemoData() {
+  if (!confirm('Esto reemplazará tus datos actuales con datos de prueba. ¿Continuar?')) return;
+  state = seedDemoData(defaultState());
+  saveState(); toast('Datos de prueba restablecidos.', 'success'); setRoute('home');
+}
+
+/* ===================== IMPORTACIÓN EXCEL/CSV ===================== */
+function handleImportFile(evt) {
+  const file = evt.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = function (e) {
+    try {
+      const data = new Uint8Array(e.target.result);
+      const wb = XLSX.read(data, { type: 'array' });
+      const sheet = wb.Sheets[wb.SheetNames[0]];
+      const rows = XLSX.utils.sheet_to_json(sheet, { header: 1, raw: false });
+      if (!rows.length) { toast('El archivo está vacío.', 'error'); return; }
+      const headers = rows[0].map(h => String(h || ''));
+      const body = rows.slice(1).filter(r => r.some(c => c !== undefined && c !== ''));
+      ui.importPreview = { headers, body: body.slice(0, 200), mapping: guessMapping(headers), fileRowCount: body.length };
+      render();
+    } catch (err) {
+      console.error(err);
+      toast('No se pudo leer el archivo. Verifica que sea un .xlsx, .xls o .csv válido.', 'error');
+    }
+  };
+  reader.onerror = () => toast('Error al leer el archivo.', 'error');
+  reader.readAsArrayBuffer(file);
+}
+function guessMapping(headers) {
+  const norm = headers.map(h => normalize(h));
+  const find = (...keys) => { for (const k of keys) { const i = norm.findIndex(h => h.includes(k)); if (i >= 0) return i; } return -1; };
+  return {
+    fecha: find('fecha'), hora: find('hora'), tipo: find('tipo'),
+    categoria: find('categoria'), descripcion: find('descripcion'),
+    ingreso: find('ingreso'), gasto: find('gasto'),
+  };
+}
+function renderImportPreview() {
+  if (!ui.importPreview) return '';
+  const p = ui.importPreview;
+  const fields = [['fecha', 'Fecha'], ['hora', 'Hora'], ['tipo', 'Tipo'], ['categoria', 'Categoría'], ['descripcion', 'Descripción'], ['ingreso', 'Ingreso'], ['gasto', 'Gasto']];
+  return `
+    <div class="preview-box">
+      <div class="card-title">Vista previa (${p.fileRowCount} filas detectadas)</div>
+      <div class="table-scroll">
+        <table class="table">
+          <thead><tr>${p.headers.map(h => `<th>${esc(h)}</th>`).join('')}</tr></thead>
+          <tbody>${p.body.slice(0, 5).map(r => `<tr>${p.headers.map((_, i) => `<td>${esc(r[i] ?? '')}</td>`).join('')}</tr>`).join('')}</tbody>
+        </table>
+      </div>
+      <div class="card-title" style="margin-top:10px">Mapea las columnas</div>
+      ${fields.map(([key, label]) => `
+        <div class="preview-row">
+          <span class="muted" style="min-width:110px">${label}</span>
+          <select class="select" onchange="setImportMapping('${key}', this.value)">
+            <option value="-1">— No usar —</option>
+            ${p.headers.map((h, i) => `<option value="${i}" ${p.mapping[key] === i ? 'selected' : ''}>${esc(h)}</option>`).join('')}
+          </select>
+        </div>`).join('')}
+      <button class="btn btn-primary btn-block" onclick="confirmImport()">Importar movimientos</button>
+      <button class="btn btn-secondary btn-block" onclick="ui.importPreview=null;render()">Cancelar</button>
+    </div>`;
+}
+function setImportMapping(field, val) { ui.importPreview.mapping[field] = parseInt(val, 10); render(); }
+function confirmImport() {
+  const p = ui.importPreview;
+  const m = p.mapping;
+  if (m.fecha < 0 || (m.ingreso < 0 && m.gasto < 0 && m.tipo < 0)) {
+    toast('Necesitas al menos mapear la fecha y el tipo/monto (ingreso o gasto).', 'error'); return;
+  }
+  let imported = 0, skipped = 0;
+  p.body.forEach(row => {
+    try {
+      const fechaRaw = m.fecha >= 0 ? row[m.fecha] : null;
+      const horaRaw = m.hora >= 0 ? row[m.hora] : null;
+      let d = fechaRaw ? new Date(fechaRaw + (horaRaw ? ' ' + horaRaw : '')) : null;
+      if (!d || isNaN(d.getTime())) d = new Date();
+      let type = null, amount = null;
+      if (m.tipo >= 0 && row[m.tipo]) {
+        type = normalize(String(row[m.tipo])).includes('ingreso') ? 'ingreso' : 'gasto';
+      }
+      const ingresoVal = m.ingreso >= 0 ? parseFloat(String(row[m.ingreso]).replace(/[^0-9.-]/g, '')) : NaN;
+      const gastoVal = m.gasto >= 0 ? parseFloat(String(row[m.gasto]).replace(/[^0-9.-]/g, '')) : NaN;
+      if (!isNaN(ingresoVal) && ingresoVal > 0) { type = 'ingreso'; amount = ingresoVal; }
+      else if (!isNaN(gastoVal) && gastoVal > 0) { type = type || 'gasto'; amount = gastoVal; }
+      if (!type || !amount || amount <= 0) { skipped++; return; }
+      const catName = m.categoria >= 0 ? String(row[m.categoria] || 'Otros') : 'Otros';
+      let cat = findCategoryMatch(catName, type) || getCategoriesByType(type).find(c => normalize(c.name) === normalize(catName));
+      if (!cat) {
+        cat = { id: normalize(catName).replace(/[^a-z0-9]+/g, '_') || 'otros', name: catName || 'Otros', icon: '📦' };
+        if (!getCategoriesByType(type).some(c2 => c2.id === cat.id)) state.categories[type].push(cat);
+      }
+      const description = m.descripcion >= 0 ? String(row[m.descripcion] || '') : '';
+      state.transactions.push({ id: uid(), type, amount, categoryId: cat.id, description, notes: '', date: d.toISOString(), isDemo: false });
+      imported++;
+    } catch (e) { skipped++; }
+  });
+  saveState();
+  ui.importPreview = null;
+  toast(`Importación completa: ${imported} movimiento(s) importados, ${skipped} omitidos.`, imported > 0 ? 'success' : 'error');
+  render();
+}
+
+/* ===================== EXPORTACIÓN A EXCEL ===================== */
+function exportExcel() {
+  try {
+    const wb = XLSX.utils.book_new();
+    const monthTxs = filterByPeriod(state.transactions, 'month');
+    const totals = computeTotals(monthTxs);
+    const breakdown = computeCategoryBreakdown(monthTxs, 'gasto');
+
+    // HOJA 1: RESUMEN
+    const resumenRows = [
+      ['Resumen financiero del mes actual'],
+      [],
+      ['Ingresos totales', totals.ingresos],
+      ['Gastos totales', totals.gastos],
+      ['Balance', totals.balance],
+      ['% de ingresos gastado', totals.pctGastado / 100],
+      ['% de ahorro', totals.pctAhorro / 100],
+      [],
+      ['Categoría', 'Total', '% del gasto'],
+      ...breakdown.map(b => [b.cat.name, b.amount, b.pct / 100]),
+    ];
+    const wsResumen = XLSX.utils.aoa_to_sheet(resumenRows);
+    wsResumen['!cols'] = [{ wch: 28 }, { wch: 16 }, { wch: 14 }];
+    XLSX.utils.book_append_sheet(wb, wsResumen, 'Resumen');
+
+    // HOJA 2: MOVIMIENTOS
+    const sorted = [...state.transactions].sort((a, b) => new Date(a.date) - new Date(b.date));
+    let acc = 0;
+    const movRows = sorted.map(t => {
+      acc += t.type === 'ingreso' ? t.amount : -t.amount;
+      return {
+        Fecha: new Date(t.date).toLocaleDateString('es-MX'),
+        Hora: new Date(t.date).toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' }),
+        Tipo: t.type === 'ingreso' ? 'Ingreso' : 'Gasto',
+        Categoría: getCategory(t.categoryId).name,
+        Descripción: t.description || '',
+        Ingreso: t.type === 'ingreso' ? t.amount : '',
+        Gasto: t.type === 'gasto' ? t.amount : '',
+        'Balance acumulado': acc,
+      };
+    }).reverse();
+    const wsMov = XLSX.utils.json_to_sheet(movRows);
+    wsMov['!cols'] = [{ wch: 12 }, { wch: 8 }, { wch: 10 }, { wch: 16 }, { wch: 26 }, { wch: 12 }, { wch: 12 }, { wch: 16 }];
+    wsMov['!autofilter'] = { ref: 'A1:H1' };
+    XLSX.utils.book_append_sheet(wb, wsMov, 'Movimientos');
+
+    // HOJA 3: ANÁLISIS
+    const wd = weekdaySpend();
+    const monthly = computeMonthlySeries(6);
+    const mayorGasto = state.transactions.filter(t => t.type === 'gasto').sort((a, b) => b.amount - a.amount)[0];
+    const allBreakdown = computeCategoryBreakdown(state.transactions, 'gasto');
+    const analisisRows = [
+      ['Análisis financiero'],
+      [],
+      ['Gasto total por categoría (histórico)'],
+      ['Categoría', 'Total', '% del gasto'],
+      ...allBreakdown.map(b => [b.cat.name, b.amount, b.pct / 100]),
+      [],
+      ['Mayor gasto registrado', mayorGasto ? mayorGasto.amount : 0, mayorGasto ? getCategory(mayorGasto.categoryId).name : ''],
+      ['Categoría donde más se gasta', allBreakdown[0] ? allBreakdown[0].cat.name : ''],
+      ['Día de la semana con mayor gasto', wd.day, wd.amount],
+      [],
+      ['Evolución mensual (Ingresos, Gastos, Balance)'],
+      ['Mes', 'Ingresos', 'Gastos', 'Balance'],
+      ...monthly.map(m => [m.label, m.ingresos, m.gastos, m.balance]),
+    ];
+    const wsAn = XLSX.utils.aoa_to_sheet(analisisRows);
+    wsAn['!cols'] = [{ wch: 30 }, { wch: 16 }, { wch: 16 }, { wch: 16 }];
+    XLSX.utils.book_append_sheet(wb, wsAn, 'Análisis');
+
+    XLSX.writeFile(wb, `finanzas_${new Date().toISOString().slice(0, 10)}.xlsx`);
+    toast('Archivo Excel generado.', 'success');
+  } catch (e) {
+    console.error(e);
+    toast('Ocurrió un error al generar el archivo Excel.', 'error');
+  }
+}
+
+/* ===================== GRÁFICAS (Chart.js) ===================== */
+function destroyChart(id) { if (chartInstances[id]) { chartInstances[id].destroy(); delete chartInstances[id]; } }
+
+function afterRenderHooks() {
+  const txs = currentTxs();
+  const breakdown = computeCategoryBreakdown(txs, 'gasto');
+  const monthly = computeMonthlySeries(6);
+  const daily = computeDailySeries(ui.period, ui.custom);
+
+  if (document.getElementById('chart-home-doughnut')) drawDoughnut('chart-home-doughnut', breakdown);
+  if (document.getElementById('chart-cat-doughnut')) drawDoughnut('chart-cat-doughnut', breakdown);
+  if (document.getElementById('chart-monthly')) drawMonthlyBar('chart-monthly', monthly);
+  if (document.getElementById('chart-savings-line')) drawSavingsLine('chart-savings-line', monthly);
+  if (document.getElementById('chart-daily')) drawDailyBar('chart-daily', daily);
+  if (document.getElementById('chart-chat-pie')) drawIncomeExpensePie('chart-chat-pie', computeTotals(filterByPeriod(state.transactions, 'month')));
+  if (document.getElementById('chart-home-monthly-expenses')) drawMonthlyExpensesBar('chart-home-monthly-expenses', monthly);
+  if (document.getElementById('chart-net')) drawNetBar('chart-net', monthly);
+  if (document.getElementById('chart-cat-bars')) drawCategoryBars('chart-cat-bars', breakdown);
+  if (document.getElementById('chart-savings-delta')) drawSavingsDelta('chart-savings-delta', computeSavingsDeltas(6));
+  if (ui.route === 'budget') {
+    budgetStatus().forEach(b => {
+      if (document.getElementById('chart-budget-' + b.categoryId)) drawBudgetDoughnut('chart-budget-' + b.categoryId, b);
+    });
+  }
+}
+
+const PALETTE = ['#2563eb', '#16a34a', '#f97316', '#dc2626', '#9333ea', '#0891b2', '#ca8a04', '#db2777', '#4b5563', '#059669'];
+
+function drawDoughnut(id, breakdown) {
+  destroyChart(id);
+  const ctx = document.getElementById(id).getContext('2d');
+  chartInstances[id] = new Chart(ctx, {
+    type: 'doughnut',
+    data: {
+      labels: breakdown.map(b => b.cat.name),
+      datasets: [{ data: breakdown.map(b => b.amount), backgroundColor: breakdown.map((_, i) => PALETTE[i % PALETTE.length]) }],
+    },
+    options: { plugins: { legend: { position: 'bottom', labels: { color: getComputedStyle(document.body).getPropertyValue('--text') } } } },
+  });
+}
+function drawMonthlyBar(id, monthly) {
+  destroyChart(id);
+  const ctx = document.getElementById(id).getContext('2d');
+  const textColor = getComputedStyle(document.body).getPropertyValue('--text');
+  chartInstances[id] = new Chart(ctx, {
+    type: 'bar',
+    data: {
+      labels: monthly.map(m => m.label),
+      datasets: [
+        { label: 'Ingresos', data: monthly.map(m => m.ingresos), backgroundColor: '#16a34a' },
+        { label: 'Gastos', data: monthly.map(m => m.gastos), backgroundColor: '#dc2626' },
+      ],
+    },
+    options: { plugins: { legend: { labels: { color: textColor } } }, scales: { x: { ticks: { color: textColor } }, y: { ticks: { color: textColor } } } },
+  });
+}
+function drawSavingsLine(id, monthly) {
+  destroyChart(id);
+  const ctx = document.getElementById(id).getContext('2d');
+  const textColor = getComputedStyle(document.body).getPropertyValue('--text');
+  chartInstances[id] = new Chart(ctx, {
+    type: 'line',
+    data: { labels: monthly.map(m => m.label), datasets: [{ label: 'Balance mensual', data: monthly.map(m => m.balance), borderColor: '#2563eb', backgroundColor: 'rgba(37,99,235,0.15)', fill: true, tension: 0.3 }] },
+    options: { plugins: { legend: { labels: { color: textColor } } }, scales: { x: { ticks: { color: textColor } }, y: { ticks: { color: textColor } } } },
+  });
+}
+function drawDailyBar(id, daily) {
+  destroyChart(id);
+  const ctx = document.getElementById(id).getContext('2d');
+  const textColor = getComputedStyle(document.body).getPropertyValue('--text');
+  chartInstances[id] = new Chart(ctx, {
+    type: 'bar',
+    data: { labels: daily.map(d => d.date.slice(5)), datasets: [{ label: 'Gasto diario', data: daily.map(d => d.amount), backgroundColor: '#f97316' }] },
+    options: { plugins: { legend: { display: false } }, scales: { x: { ticks: { color: textColor } }, y: { ticks: { color: textColor } } } },
+  });
+}
+function drawIncomeExpensePie(id, totals) {
+  destroyChart(id);
+  const canvas = document.getElementById(id);
+  if (!canvas) return;
+  const ctx = canvas.getContext('2d');
+  const textColor = getComputedStyle(document.body).getPropertyValue('--text');
+  const surface = getComputedStyle(document.body).getPropertyValue('--surface').trim() || '#ffffff';
+  const hasData = (totals.ingresos + totals.gastos) > 0;
+  chartInstances[id] = new Chart(ctx, {
+    type: 'pie',
+    data: {
+      labels: ['Ingresos', 'Gastos'],
+      datasets: [{
+        data: hasData ? [totals.ingresos, totals.gastos] : [1, 1],
+        backgroundColor: hasData ? ['#15803d', '#b91c1c'] : ['rgba(150,165,180,.3)', 'rgba(150,165,180,.18)'],
+        borderColor: surface,
+        borderWidth: 2,
+        hoverOffset: hasData ? 6 : 0,
+      }],
+    },
+    options: {
+      plugins: {
+        legend: { display: true, position: 'bottom', labels: { color: textColor, usePointStyle: true, pointStyle: 'circle', padding: 14 } },
+        tooltip: { enabled: hasData, callbacks: { label: (c) => `${c.label}: ${fmtMoney(c.raw)}` } },
+      },
+      animation: { duration: 500 },
+      responsive: true,
+      maintainAspectRatio: false,
+    },
+  });
+}
+function drawMonthlyExpensesBar(id, monthly) {
+  destroyChart(id);
+  const ctx = document.getElementById(id).getContext('2d');
+  const textColor = getComputedStyle(document.body).getPropertyValue('--text');
+  chartInstances[id] = new Chart(ctx, {
+    type: 'bar',
+    data: {
+      labels: monthly.map(m => m.label),
+      datasets: [{ label: 'Gastos del mes', data: monthly.map(m => m.gastos), backgroundColor: '#b91c1c', borderRadius: 4 }],
+    },
+    options: {
+      plugins: { legend: { display: false }, tooltip: { callbacks: { label: c => fmtMoney(c.raw) } } },
+      scales: { x: { ticks: { color: textColor }, grid: { display: false } }, y: { ticks: { color: textColor } } },
+      responsive: true, maintainAspectRatio: false,
+    },
+  });
+}
+function drawNetBar(id, monthly) {
+  destroyChart(id);
+  const ctx = document.getElementById(id).getContext('2d');
+  const textColor = getComputedStyle(document.body).getPropertyValue('--text');
+  chartInstances[id] = new Chart(ctx, {
+    type: 'bar',
+    data: {
+      labels: monthly.map(m => m.label),
+      datasets: [{
+        label: 'Ingresos − Gastos',
+        data: monthly.map(m => m.balance),
+        backgroundColor: monthly.map(m => m.balance >= 0 ? '#15803d' : '#b91c1c'),
+        borderRadius: 4,
+      }],
+    },
+    options: {
+      plugins: { legend: { display: false }, tooltip: { callbacks: { label: c => fmtMoney(c.raw) } } },
+      scales: { x: { ticks: { color: textColor }, grid: { display: false } }, y: { ticks: { color: textColor } } },
+      responsive: true, maintainAspectRatio: false,
+    },
+  });
+}
+function drawCategoryBars(id, breakdown) {
+  destroyChart(id);
+  const ctx = document.getElementById(id).getContext('2d');
+  const textColor = getComputedStyle(document.body).getPropertyValue('--text');
+  chartInstances[id] = new Chart(ctx, {
+    type: 'bar',
+    data: {
+      labels: breakdown.map(b => b.cat.name),
+      datasets: [{ label: 'Gasto', data: breakdown.map(b => b.amount), backgroundColor: breakdown.map((_, i) => PALETTE[i % PALETTE.length]), borderRadius: 4 }],
+    },
+    options: {
+      indexAxis: 'y',
+      plugins: { legend: { display: false }, tooltip: { callbacks: { label: c => fmtMoney(c.raw) } } },
+      scales: { x: { ticks: { color: textColor } }, y: { ticks: { color: textColor }, grid: { display: false } } },
+      responsive: true, maintainAspectRatio: false,
+    },
+  });
+}
+function drawSavingsDelta(id, deltas) {
+  destroyChart(id);
+  const ctx = document.getElementById(id).getContext('2d');
+  const textColor = getComputedStyle(document.body).getPropertyValue('--text');
+  chartInstances[id] = new Chart(ctx, {
+    type: 'bar',
+    data: {
+      labels: deltas.map(d => d.label),
+      datasets: [{
+        label: 'Cambio del ahorro',
+        data: deltas.map(d => d.delta),
+        backgroundColor: deltas.map(d => d.delta >= 0 ? '#15803d' : '#b91c1c'),
+        borderRadius: 4,
+      }],
+    },
+    options: {
+      plugins: { legend: { display: false }, tooltip: { callbacks: { label: c => (c.raw >= 0 ? '▲ ' : '▼ ') + fmtMoney(Math.abs(c.raw)) } } },
+      scales: { x: { ticks: { color: textColor }, grid: { display: false } }, y: { ticks: { color: textColor } } },
+      responsive: true, maintainAspectRatio: false,
+    },
+  });
+}
+function drawBudgetDoughnut(id, b) {
+  destroyChart(id);
+  const canvas = document.getElementById(id);
+  if (!canvas) return;
+  const ctx = canvas.getContext('2d');
+  const surface = getComputedStyle(document.body).getPropertyValue('--surface').trim() || '#ffffff';
+  const spent = Math.min(b.spent, b.limit);
+  const over = Math.max(0, b.spent - b.limit);
+  const remaining = Math.max(0, b.limit - b.spent);
+  const data = over > 0 ? [b.limit, over] : [spent, remaining];
+  const labels = over > 0 ? ['Presupuesto gastado', 'Excedido'] : ['Ya gastado', 'Disponible'];
+  const colors = over > 0 ? ['#b45309', '#b91c1c'] : ['#2a4d8f', '#c9a227'];
+  chartInstances[id] = new Chart(ctx, {
+    type: 'doughnut',
+    data: { labels, datasets: [{ data, backgroundColor: colors, borderColor: surface, borderWidth: 2 }] },
+    options: {
+      cutout: '62%',
+      plugins: { legend: { display: false }, tooltip: { callbacks: { label: c => `${c.label}: ${fmtMoney(c.raw)}` } } },
+      animation: { duration: 450 },
+      responsive: true, maintainAspectRatio: false,
+    },
+  });
+}
+
+/* ===================== INICIO ===================== */
+render();
+</script>
+</body>
+</html>
